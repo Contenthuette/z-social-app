@@ -167,7 +167,7 @@ export default function SettingsScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.brand}>built by CONTENTHUETTE</Text>
+          <Text style={styles.brand}>built by Leif Dunkelmann | CONTENTHÜTTE</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
