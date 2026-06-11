@@ -1,255 +1,157 @@
 import type { LegalSection } from "./legal-content";
-import { LEGAL_URLS } from "./legal-links";
 
 /* ═══════════════════════════════════════════════════
    Datenschutzerklärung – DSGVO
    ═══════════════════════════════════════════════════ */
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
-    heading: "1. Verantwortlicher",
-    body: [
-      "Verantwortlich für die Datenverarbeitung im Zusammenhang mit der App „Z“ / „Z Social“ ist:",
-      "CONTENTHÜTTE\nLeif Dunkelmann\nWerderstraße 135\n19055 Schwerin\nDeutschland",
-      "E-Mail: leif@z-social.com\nTelefon: 01734506873",
-      `Diese Datenschutzerklärung ist jederzeit in der App im Privacy Center sowie unter ${LEGAL_URLS.privacy} abrufbar.`,
-    ].join("\n\n"),
+    heading: "1. Einleitung",
+    body: `Im Folgenden informieren wir über die Verarbeitung personenbezogener Daten bei der Nutzung unserer mobilen App (nachfolgend nur "App"). Personenbezogene Daten sind alle Daten, die auf eine konkrete natürliche Person beziehbar sind, z. B. ihr Name oder ihre IP-Adresse.`,
   },
   {
-    heading: "2. Überblick",
-    body: [
-      "Wir verarbeiten personenbezogene Daten nur, soweit dies für Betrieb, Sicherheit, Kommunikation, Community-Funktionen, Moderation, Zahlungsabwicklung, Push-Benachrichtigungen, Support und Weiterentwicklung der App erforderlich ist oder eine Einwilligung vorliegt.",
-      "Z ist eine Social-Media-App. Profilangaben, Beiträge, Fotos, Videos, Kommentare, Gruppenaktivitäten, Eventteilnahmen, Live-Stream-Interaktionen und andere vom Nutzer veröffentlichte Inhalte können je nach Funktion für andere Nutzer sichtbar sein.",
-      "Es werden keine externen Werbe-Tracking-Dienste wie Google Analytics, Facebook Pixel oder vergleichbare Werbenetzwerk-Tracker eingesetzt. Personenbezogene Daten werden nicht an Werbenetzwerke verkauft.",
-    ].join("\n\n"),
+    heading: "1.1 Kontaktdaten",
+    body: `Verantwortlicher gem. Art. 4 Abs. 7 EU-Datenschutz-Grundverordnung (DSGVO) ist CONTENTHÜTTE Leif Dunkelmann, Werderstraße 135, Schwerin, Deutschland, E-Mail: info@contenthuette.de. Gesetzlich vertreten werden wir durch Leif Dunkelmann.
+
+Unser Datenschutzbeauftragter ist über die heyData GmbH, Schützenstraße 5, 10117 Berlin, www.heydata.eu, E-Mail: datenschutz@heydata.eu erreichbar.`,
   },
   {
-    heading: "3. Rechtsgrundlagen der Verarbeitung",
-    body: [
-      "Je nach Verarbeitung stützen wir uns auf folgende Rechtsgrundlagen:",
-      "• Art. 6 Abs. 1 lit. a DSGVO – Einwilligung, insbesondere bei freiwilligen Profildaten, Push-Benachrichtigungen, Geräteberechtigungen und optionalen Funktionen.\n• Art. 6 Abs. 1 lit. b DSGVO – Vertragserfüllung, insbesondere für Registrierung, Nutzerkonto, App-Funktionen, Nachrichten, Anrufe, Gruppen, Events, Tickets, Abonnements und Support.\n• Art. 6 Abs. 1 lit. c DSGVO – rechtliche Verpflichtungen, insbesondere steuer-, handels-, auskunfts- und behördliche Pflichten.\n• Art. 6 Abs. 1 lit. f DSGVO – berechtigte Interessen, insbesondere Betriebssicherheit, Missbrauchsvermeidung, Moderation, Fehleranalyse, Plattformstatistiken, Rechtsdurchsetzung und Weiterentwicklung der App.",
-      "Soweit eine Verarbeitung auf Einwilligung beruht, kann diese jederzeit mit Wirkung für die Zukunft widerrufen werden.",
-    ].join("\n\n"),
+    heading: "1.2 Umfang der Datenverarbeitung, Verarbeitungszwecke und Rechtsgrundlagen",
+    body: `Den Umfang der Verarbeitung der Daten, Verarbeitungszwecke und Rechtsgrundlagen führen wir im Detail weiter unten aus. Als Rechtsgrundlage für eine Datenverarbeitung kommen grundsätzlich die folgenden in Betracht:
+
+• Art. 6 Abs. 1 S. 1 lit. a DSGVO dient uns als Rechtsgrundlage für Verarbeitungsvorgänge, für die wir eine Einwilligung einholen.
+• Art. 6 Abs. 1 S. 1 lit. b DSGVO ist Rechtsgrundlage, soweit die Verarbeitung personenbezogener Daten zur Erfüllung eines Vertrages erforderlich ist, z.B. wenn ein Nutzer von uns ein Produkt erwirbt oder wir für ihn eine Leistung ausführen. Diese Rechtsgrundlage gilt auch für Verarbeitungen, die für vorvertragliche Maßnahmen erforderlich sind, etwa bei Anfragen zu unseren Produkten oder Leistungen.
+• Art. 6 Abs. 1 S. 1 lit. c DSGVO findet Anwendung, wenn wir mit der Verarbeitung personenbezogener Daten eine rechtliche Verpflichtung erfüllen, wie es z.B. im Steuerrecht der Fall sein kann.
+• Art. 6 Abs. 1 S. 1 lit. f DSGVO dient als Rechtsgrundlage, wenn wir uns zur Verarbeitung personenbezogener Daten auf berechtigte Interessen berufen können, z.B. für Cookies, die für den technischen Betrieb unserer Website erforderlich sind.`,
   },
   {
-    heading: "4. Kategorien personenbezogener Daten",
-    body: [
-      "Je nach Nutzung der App verarbeiten wir insbesondere folgende Daten:",
-      "4.1 Kontodaten\n• E-Mail-Adresse\n• Name / Anzeigename\n• Passwort in gehashter Form\n• Login-Verfahren, Sitzungen und Authentifizierungsdaten\n• Google-Konto-Informationen, sofern Google-Login genutzt wird\n• Kontostatus, Rolle, Onboarding-Status und Erstellungszeitpunkt",
-      "4.2 Profildaten\n• Profilbild und Bannerbild\n• Biografie\n• Landkreis, Stadt oder sonstige regionale Angaben\n• Geschlecht, Geburtsdatum und Interessen, soweit freiwillig angegeben\n• Suchtext und öffentlich sichtbare Profilinformationen",
-      "4.3 Inhalte und Interaktionen\n• Beiträge, Fotos, Videos, Bildunterschriften und Vorschaubilder\n• Kommentare, Likes, gespeicherte Beiträge und geteilte Beiträge\n• Gruppen, Gruppenmitgliedschaften, Gruppenrollen und Beitrittsanfragen\n• Umfragen und Abstimmungen\n• Freundschaftsanfragen, Freundschaftsstatus und Blockierungen",
-      "4.4 Kommunikationsdaten\n• Direktnachrichten mit Text, Bildern, Videos, Sprachnachrichten und geteilten Beiträgen\n• Absender, Empfänger, Konversation, Zeitpunkte und Lesestatus\n• Gesprächseinstellungen wie angepinnte oder ausgeblendete Konversationen",
-      "4.5 Anruf- und Live-Stream-Daten\n• Anrufart, Status, Teilnehmer, Start-, Annahme- und Endzeitpunkte\n• Signalisierungsdaten für WebRTC-Verbindungen (z. B. Verbindungsangebote und ICE-Kandidaten)\n• Live-Stream-Titel, Host, Co-Host, Zuschauer, Teilnehmerzahlen, Kommentare und Beitrittsanfragen",
-      "4.6 Event- und Ticketdaten\n• Eventname, Beschreibung, Ort, Stadt, Landkreis, Datum, Uhrzeit, Dauer, Preis und Status\n• Teilnehmerdaten, Ticketstatus, QR-Code, Check-in-Status und Einlasszeitpunkte\n• Einlasshelfer, Eventadministratoren und zugehörige Berechtigungen",
-      "4.7 Zahlungs- und Vertragsdaten\n• Stripe-Kunden-ID, Abonnementstatus, Abonnementplan und Laufzeit\n• Zahlungsstatus, Transaktions- und Rechnungsinformationen, soweit für Verwaltung und Nachweis erforderlich\n• Vollständige Kreditkarten- oder Bankdaten werden nicht auf unseren Servern gespeichert, sondern durch Stripe verarbeitet.",
-      "4.8 Meldungen, Moderation und Sicherheit\n• Meldender Nutzer, gemeldeter Inhalt oder Nutzer, Meldegrund, Status und Bearbeitungszeitpunkt\n• Moderationsentscheidungen, Sperren, Löschungen und sicherheitsrelevante Hinweise\n• technische Logdaten zur Missbrauchs- und Fehleranalyse",
-      "4.9 Geräte-, Nutzungs- und technische Daten\n• IP-Adresse, App-Version, Betriebssystem, Gerätetyp und technische Logdaten\n• Push-Token, Plattformbezug und Benachrichtigungseinstellungen\n• Zeitpunkte der Aktivität, Nutzungsereignisse und aggregierte Kennzahlen\n• lokal gespeicherte Sitzungsdaten und Authentifizierungstoken",
-    ].join("\n\n"),
+    heading: "1.3 Datenverarbeitung außerhalb des EWR",
+    body: `Soweit wir Daten an Dienstleister oder sonstige Dritte außerhalb des EWR übermitteln, garantieren Angemessenheitsbeschlüsse der EU-Kommission nach Art. 45 Ab. 3 DSGVO die Sicherheit der Daten bei der Weitergabe, soweit diese vorhanden sind, wie dies z.B. für Großbritannien, Kanada und Israel der Fall ist.
+
+Bei der Datenweitergabe an Dienstleister in den USA, ist Rechtsgrundlage für die Datenweitergabe ein Angemessenheitsbeschluss der EU-Kommission, wenn sich der Dienstleister zusätzlich unter dem EU US Data Privacy Framework zertifiziert hat.
+
+In anderen Fällen (z.B. wenn kein Angemessenheitsbeschluss existiert), sind Rechtsgrundlage für die Datenweitergabe im Regelfall, also soweit wir keinen abweichenden Hinweis geben, Standardvertragsklauseln. Diese sind ein von der EU-Kommission verabschiedetes Regelwerk und Teil des Vertrags mit dem jeweiligen Dritten. Nach Art. 46 Abs. 2 lit. b DSGVO gewährleisten sie die Sicherheit der Datenweitergabe. Viele der Anbieter haben über die Standardvertragsklauseln hinausgehende vertragliche Garantien abgegeben, die die Daten über die Standardvertragsklauseln hinaus schützen. Das sind z.B. Garantien hinsichtlich der Verschlüsselung der Daten oder hinsichtlich einer Pflicht des Dritten zum Hinweis an Betroffene, wenn Strafverfolgungsorgane auf Daten zugreifen wollen.`,
   },
   {
-    heading: "5. Öffentliche Inhalte und Sichtbarkeit",
-    body: [
-      "Profilangaben und vom Nutzer veröffentlichte Inhalte können je nach Funktion für andere Nutzer sichtbar sein. Dazu gehören insbesondere Beiträge, Fotos, Videos, Kommentare, Likes, Gruppenaktivitäten, Umfragen, Events und Live-Stream-Interaktionen.",
-      "Andere Nutzer können sichtbare Inhalte wahrnehmen, melden, speichern, abfotografieren oder außerhalb der App weiterverbreiten. Wir können eine solche Weiterverbreitung technisch nicht vollständig verhindern.",
-      "Nutzer sollten daher keine Informationen veröffentlichen, die sie nicht anderen zugänglich machen möchten.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, soweit die Veröffentlichung Teil der genutzten App-Funktion ist, sowie Art. 6 Abs. 1 lit. f DSGVO für den sicheren und geordneten Betrieb der Plattform.",
-    ].join("\n\n"),
+    heading: "1.4 Speicherdauer",
+    body: `Sofern nicht im Rahmen dieser Datenschutzerklärung ausdrücklich angegeben, werden die bei uns gespeicherten Daten gelöscht, sobald sie für ihre Zweckbestimmung nicht mehr erforderlich sind und der Löschung keine gesetzlichen Aufbewahrungspflichten entgegenstehen. Sofern die Daten nicht gelöscht werden, weil sie für andere und gesetzlich zulässige Zwecke erforderlich sind, wird ihre Verarbeitung eingeschränkt, d.h. die Daten werden gesperrt und nicht für andere Zwecke verarbeitet. Das gilt z.B. für Daten, die wir aus handels- oder steuerrechtlichen Gründen aufbewahren müssen.`,
   },
   {
-    heading: "6. Registrierung, Login und Authentifizierung",
-    body: [
-      "Für die Registrierung und Anmeldung verarbeiten wir die für das jeweilige Login-Verfahren erforderlichen Daten. Dazu gehören insbesondere E-Mail-Adresse, Name, Passwort in gehashter Form, Sitzungsdaten und technische Authentifizierungsinformationen.",
-      "Bei Nutzung des Google-Logins verarbeitet Google zusätzlich Daten nach eigener Datenschutzerklärung. Wir erhalten nur die für den Login erforderlichen Informationen, insbesondere Identifikationsdaten, Name und E-Mail-Adresse.",
-      "Die Authentifizierung wird technisch über Better Auth innerhalb unserer App-Infrastruktur umgesetzt. Die damit verbundenen Daten werden für Kontoerstellung, Login, Sitzungsverwaltung, Passwortzurücksetzung und Sicherheit verarbeitet.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO sowie Art. 6 Abs. 1 lit. f DSGVO für die Sicherheit des Nutzerkontos.",
-    ].join("\n\n"),
+    heading: "1.5 Rechte der Betroffenen",
+    body: `Betroffene haben gegenüber uns folgende Rechte hinsichtlich der sie betreffenden personenbezogenen Daten:
+
+• Recht auf Auskunft,
+• Recht auf Berichtigung oder Löschung,
+• Recht auf Einschränkung der Verarbeitung,
+• Recht auf Widerspruch gegen die Verarbeitung,
+• Recht auf Datenübertragbarkeit,
+• Recht, eine erteilte Einwilligung jederzeit zu widerrufen.
+
+Betroffene haben zudem das Recht, sich bei einer Datenschutz-Aufsichtsbehörde über die Verarbeitung ihrer personenbezogenen Daten zu beschweren. Kontaktdaten der Datenschutz-Aufsichtsbehörden sind unter https://www.bfdi.bund.de/DE/Service/Anschriften/Laender/Laender-node.html abrufbar.`,
   },
   {
-    heading: "7. Regionale Angaben und Standort",
-    body: [
-      "Nutzer können freiwillig Landkreis, Stadt oder andere regionale Angaben hinterlegen, damit regionale Inhalte, Gruppen, Events und Community-Bezüge angezeigt werden können.",
-      "Derzeit wird kein präziser GPS-Standort im Hintergrund erhoben. Eine ungefähre technische Zuordnung kann sich aus der IP-Adresse ergeben und dient ausschließlich Sicherheit, Stabilität, Missbrauchsvermeidung und technischer Bereitstellung.",
-      "Sollte künftig eine Funktion präzise Standortdaten benötigen, wird dies in der App gesondert angezeigt und nur nach entsprechender Gerätefreigabe bzw. Einwilligung verarbeitet.",
-      "Rechtsgrundlage für freiwillige regionale Angaben ist Art. 6 Abs. 1 lit. a DSGVO. Rechtsgrundlage für technische IP-Verarbeitung ist Art. 6 Abs. 1 lit. f DSGVO.",
-    ].join("\n\n"),
+    heading: "1.6 Pflicht zur Bereitstellung von Daten",
+    body: `Kunden, Interessenten oder Dritte müssen uns im Rahmen einer Geschäftsbeziehung oder sonstigen Beziehung nur diejenigen personenbezogenen Daten bereitstellen, die für die Begründung, Durchführung und Beendigung der Geschäftsbeziehung oder sonstigen Beziehung erforderlich sind oder zu deren Erhebung wir gesetzlich verpflichtet sind. Ohne diese Daten werden wir in der Regel den Abschluss eines Vertrages oder die Bereitstellung einer Leistung ablehnen müssen oder einen bestehenden Vertrag oder sonstige Beziehung nicht mehr durchführen können. Pflichtangaben sind als solche gekennzeichnet.`,
   },
   {
-    heading: "8. Beiträge, Medien, Kommentare und Gruppen",
-    body: [
-      "Wenn Nutzer Beiträge, Fotos, Videos, Kommentare, Gruppen, Gruppennachrichten, Interessen oder Umfragen erstellen, verarbeiten wir die eingegebenen Inhalte, Medien, Zeitpunkte, Autorenzuordnung und technische Metadaten zur Bereitstellung der jeweiligen Funktion.",
-      "Medien können in verschiedene technische Formate umgewandelt, komprimiert oder mit Vorschaubildern versehen werden, um Darstellung, Sicherheit und Performance der App zu gewährleisten.",
-      "Nutzer können eigene Beiträge, Fotos und Videos löschen, soweit die Funktion dies vorsieht. Kommentare, Likes und andere Interaktionen werden im Rahmen der Kontolöschung oder Moderation gelöscht, soweit keine gesetzlichen oder berechtigten Gründe entgegenstehen.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO sowie Art. 6 Abs. 1 lit. f DSGVO für Sicherheit, Moderation und Missbrauchsvermeidung.",
-    ].join("\n\n"),
+    heading: "1.7 Keine automatische Entscheidungsfindung im Einzelfall",
+    body: `Zur Begründung und Durchführung einer Geschäftsbeziehung oder sonstigen Beziehung nutzen wir grundsätzlich keine vollautomatisierte Entscheidungsfindung gemäß Artikel 22 DSGVO. Sollten wir diese Verfahren in Einzelfällen einsetzen, werden wir hierüber gesondert informieren, sofern dies gesetzlich vorgegeben ist.`,
   },
   {
-    heading: "9. Direktnachrichten und Kommunikationsverläufe",
-    body: [
-      "Für Direktnachrichten verarbeiten wir Absender, Empfänger, Konversation, Inhalt, Medien, Zeitpunkte, Lesestatus und technische Zustellinformationen.",
-      "Gesendete Nachrichten bleiben grundsätzlich im Gesprächsverlauf des Empfängers erhalten. Bei Kontolöschung werden Profil- und Kontodaten des gelöschten Nutzers entfernt; bereits versendete Nachrichten können im Verlauf anderer Nutzer weiter sichtbar bleiben, um Kommunikationszusammenhänge zu erhalten und berechtigte Interessen der Gesprächspartner zu wahren.",
-      "Nachrichten können aus rechtlichen, sicherheitsrelevanten oder moderativen Gründen entfernt oder gesperrt werden.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO für die Nachrichtenfunktion sowie Art. 6 Abs. 1 lit. f DSGVO für Integrität von Kommunikationsverläufen, Missbrauchsabwehr und Rechtsdurchsetzung.",
-    ].join("\n\n"),
+    heading: "1.8 Kontaktaufnahme",
+    body: `Bei der Kontaktaufnahme mit uns, z.B. per E-Mail oder Telefon, werden die uns mitgeteilten Daten (z.B. Namen und E-Mail-Adressen) von uns gespeichert, um Fragen zu beantworten. Rechtsgrundlage für die Verarbeitung ist unser berechtigtes Interesse (Art. 6 Abs. 1 S. 1 lit. f DSGVO), an uns gerichtete Anfragen zu beantworten. Die in diesem Zusammenhang anfallenden Daten löschen wir, nachdem die Speicherung nicht mehr erforderlich ist, oder schränken die Verarbeitung ein, falls gesetzliche Aufbewahrungspflichten bestehen.`,
   },
   {
-    heading: "10. Audio-/Videoanrufe und Live-Streams",
-    body: [
-      "Audio- und Videoanrufe sowie Live-Streams werden über WebRTC realisiert. Dabei werden technische Signalisierungsdaten verarbeitet, damit Verbindungen zwischen Endgeräten aufgebaut werden können.",
-      "Medienströme laufen nach Möglichkeit direkt zwischen den Geräten der Teilnehmer. Wenn eine direkte Verbindung nicht möglich ist, können TURN-/STUN-Relayserver von Metered eingesetzt werden. Dabei können IP-Adressen und verschlüsselte Medienströme über Server des Dienstleisters geleitet werden.",
-      "Der Inhalt laufender Anrufe wird vom Anbieter grundsätzlich nicht aufgezeichnet. Live-Stream-Metadaten, Kommentare, Teilnehmer- und Zuschauerinformationen können verarbeitet werden, um den Live-Stream bereitzustellen, zu moderieren und Missbrauch zu verhindern.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO sowie Art. 6 Abs. 1 lit. f DSGVO für technische Sicherheit, Stabilität und Moderation.",
-    ].join("\n\n"),
+    heading: "2. Datenverarbeitung in der App",
+    body: "",
   },
   {
-    heading: "11. Events, Tickets und QR-Code-Check-in",
-    body: [
-      "Für Events verarbeiten wir Eventangaben, Veranstalterdaten, Teilnehmerdaten, Ticketdaten, QR-Codes, Check-in-Status, Einlasszeitpunkte und Eventadministratoren, soweit dies für Erstellung, Verwaltung, Teilnahme, Ticketkauf und Einlass erforderlich ist.",
-      "Bei Ticketkäufen und kostenpflichtigen Leistungen werden Zahlungsinformationen über Stripe verarbeitet. Wir speichern nur die für Vertragsverwaltung, Nachweis, Abonnementstatus und Support erforderlichen Zahlungsreferenzen.",
-      "Wenn Veranstalter oder Nutzer bei Events Fotos oder Videos erstellen und veröffentlichen, sind sie selbst für die Einhaltung des Rechts am eigenen Bild und der datenschutzrechtlichen Vorgaben verantwortlich. Betroffene Personen können entsprechende Inhalte melden.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, Art. 6 Abs. 1 lit. c DSGVO für gesetzliche Aufbewahrungspflichten sowie Art. 6 Abs. 1 lit. f DSGVO für Sicherheit, Nachweis und Missbrauchsvermeidung.",
-    ].join("\n\n"),
+    heading: "2.1 Herunterladen der App",
+    body: `Unsere App steht im Apple App Store und im Google Play Store (nachfolgend "Stores") zum Herunterladen bereit. Wenn Nutzer die App herunterladen, werden die erforderlichen Informationen an die Stores übertragen, also insbesondere Nutzername, E-Mail-Adresse und Kundennummer des Accounts, Zeitpunkt des Downloads, Zahlungsinformationen und die individuelle Gerätekennziffer. Auf diese Datenerhebung haben wir keinen Einfluss und sind nicht dafür verantwortlich. Wir verarbeiten die Daten nur, soweit es für das Herunterladen der mobilen App auf das mobile Endgerät des Nutzers notwendig ist.`,
   },
   {
-    heading: "12. Zahlungen und Stripe",
-    body: [
-      "Zahlungen für Abonnements, Tickets oder andere kostenpflichtige Leistungen werden über Stripe abgewickelt. Stripe verarbeitet Zahlungsdaten in eigener Verantwortung bzw. als Dienstleister, soweit dies für die Zahlungsabwicklung erforderlich ist.",
-      "Wir verarbeiten insbesondere Stripe-Kunden-ID, Abonnementstatus, Laufzeit, Zahlungsstatus und abrechnungsrelevante Informationen. Vollständige Kreditkarten- oder Bankdaten werden nicht auf unseren Servern gespeichert.",
-      "Weitere Informationen zum Datenschutz bei Stripe finden sich unter: https://stripe.com/de/privacy",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO für Zahlungs- und Vertragsabwicklung sowie Art. 6 Abs. 1 lit. c DSGVO für gesetzliche Aufbewahrungspflichten.",
-    ].join("\n\n"),
+    heading: "2.2 Hosting",
+    body: `Unsere App hostet der Anbieter: Die Z Social App läuft technisch über Bloom als App-Plattform/Preview- und Veröffentlichungsumgebung. Der Backend-Betrieb — Datenbank, Funktionen, Auth-Anbindung, Storage und Webhooks — läuft bei Convex Cloud. Zusätzlich angebundene Dienste sind: Stripe für Zahlungen/Abos, Resend für E-Mails, LiveKit/Metered für WebRTC-/TURN-/STUN-Infrastruktur bei Calls/Livestreams, Google OAuth für Google-Login. Der Anbieter verarbeitet dabei die über die App übermittelten personenbezogenen Daten, z.B. Inhalts-, Nutzungs-, Meta-/Kommunikationsdaten oder Kontaktdaten. Es ist unser berechtigtes Interesse, eine App zur Verfügung zu stellen, so dass die Rechtsgrundlage der Datenverarbeitung Art. 6 Abs. 1 S. 1 lit. f DSGVO ist. Der Anbieter hostet die App auf Servern in USA.`,
   },
   {
-    heading: "13. Push-Benachrichtigungen",
-    body: [
-      "Die App kann Push-Benachrichtigungen für Nachrichten, Anrufe, Gruppenaktivitäten, Event-Erinnerungen, Freundschaftsanfragen, Moderationshinweise, Systeminformationen und Ankündigungen senden.",
-      "Hierfür werden insbesondere Push-Token, Plattform-/Gerätebezug, Benachrichtigungseinstellungen und Zustellinformationen verarbeitet. Push-Benachrichtigungen setzen eine Freigabe über das Betriebssystem voraus.",
-      "Push-Benachrichtigungen können jederzeit in den Geräte- oder App-Einstellungen deaktiviert werden. Danach können bestimmte Hinweise nicht mehr oder nur eingeschränkt zugestellt werden.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. a DSGVO für die Gerätefreigabe sowie Art. 6 Abs. 1 lit. b oder lit. f DSGVO für funktionale und sicherheitsrelevante Benachrichtigungen.",
-    ].join("\n\n"),
+    heading: "2.3 Informatorische Nutzung der App",
+    body: `Wenn Nutzer unsere App nutzen, erheben wir die Daten, die für uns technisch erforderlich sind, um Nutzern die Funktionen unserer App anzubieten und die Stabilität und Sicherheit zu gewährleisten. Darin liegt unser berechtigtes Interesse, so dass Rechtsgrundlage Art. 6 Abs. 1 S. 1 lit. f DSGVO ist.
+
+Die insoweit verarbeiteten Daten sind:
+
+• IP-Adresse
+• Datum und Uhrzeit der Anfrage
+• Zeitzonendifferenz zur Greenwich Mean Time (GMT)
+• Inhalt der Anforderung (konkrete Oberfläche)
+• Zugriffsstatus/HTTP-Statuscode
+• jeweils übertragene Datenmenge
+• Betriebssystem und dessen Oberfläche
+• Sprache und Version des Betriebssystems`,
   },
   {
-    heading: "14. Lokale Speicherung, Cookies und ähnliche Technologien",
-    body: [
-      "Die App nutzt lokale Speichertechnologien, Authentifizierungstoken und technisch erforderliche Informationen, um Login, Sitzungen, Sicherheit, App-Funktionen und Einstellungen bereitzustellen.",
-      "Soweit solche Technologien für die Bereitstellung der App technisch erforderlich sind, erfolgt der Zugriff auf Grundlage von § 25 Abs. 2 TDDDG. Soweit eine Einwilligung erforderlich ist, erfolgt der Zugriff auf Grundlage von § 25 Abs. 1 TDDDG und Art. 6 Abs. 1 lit. a DSGVO.",
-      "Nicht erforderliche Werbe- oder Marketing-Cookies werden derzeit nicht eingesetzt.",
-    ].join("\n\n"),
+    heading: "2.4 Zugriff auf Funktionen oder Daten",
+    body: `Die App fragt den Zugriff des Nutzers zu Funktionen des Endgeräts oder auf Daten des Endgeräts an, um Funktionen der App ausführen zu können. Indem der Nutzer den Zugriff gestattet, erteilt er seine Einwilligung in die damit verbundene Datenverarbeitung, so dass Rechtsgrundlage Art. 6 Abs. 1 S. 1 lit. a DSGVO ist. Nutzer können ihre Einwilligung jederzeit widerrufen, indem sie den Zugriff in den Einstellungen des Endgeräts beenden. Der Widerruf berührt nicht die Rechtmäßigkeit der Verarbeitung bis zum Widerruf.
+
+Die insoweit verarbeiteten Daten oder verwendeten Zugriffsfunktionen sind: bestehende Fotoaufnahmen, (gesamter) Speicher, Kamera, Mikrofon, Push-Benachrichtigungen.`,
   },
   {
-    heading: "15. Geräteberechtigungen",
-    body: [
-      "Je nach genutzter Funktion kann die App um Geräteberechtigungen bitten:",
-      "• Kamera: für Profilbilder, Beiträge, Videoanrufe und Live-Streams\n• Mikrofon: für Sprachnachrichten, Audio-/Videoanrufe und Live-Streams\n• Foto-/Mediathek: zum Auswählen von Bildern und Videos\n• Push-Benachrichtigungen: für Benachrichtigungen und Hinweise\n• Standort: derzeit nicht für präzise GPS-Erhebung erforderlich; regionale Angaben erfolgen manuell",
-      "Berechtigungen können jederzeit in den Geräteeinstellungen widerrufen werden. Ohne Berechtigung stehen betroffene Funktionen nicht oder nur eingeschränkt zur Verfügung.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. a DSGVO bzw. Art. 6 Abs. 1 lit. b DSGVO, soweit die Verarbeitung zur vom Nutzer angeforderten Funktion erforderlich ist.",
-    ].join("\n\n"),
+    heading: "2.5 Datenverarbeitung zur Bereitstellung von Funktionen",
+    body: `In der App verarbeiten wir Daten, um dem Nutzer Funktionen der App zur Verfügung zu stellen. Rechtsgrundlage der Verarbeitung ist der mit dem Nutzer geschlossene Nutzungsvertrag über die App.
+
+Die insoweit verarbeiteten Daten sind:
+
+• Anderer Identifikator außer UUID
+• Standortdaten
+• Universal Unique Identifier des Endgeräts (UUID)
+
+Technisch verarbeiten wir eindeutige IDs, aber nach aktuellem Stand keine Geräte-UUID im Sinne einer direkt aus dem Smartphone ausgelesenen Hardware-ID. Verarbeitet werden insbesondere: Nutzer-ID / Account-ID, Session-ID, interne Datenbank-IDs, IDs für Beiträge, Nachrichten, Events, Chats und Profile, ggf. Push-Token für Benachrichtigungen sowie technische Identifikatoren, die durch Login, Sicherheit, Speicherung und Zuordnung von Inhalten notwendig sind. Kurz gesagt: Ja, UUID-/ID-ähnliche technische Kennungen werden verarbeitet, um Nutzerkonten, Sitzungen, Inhalte und Benachrichtigungen korrekt zuzuordnen. Eine ausdrückliche Geräte-UUID wird aber nicht aktiv als separate Gerätekennung abgefragt oder ausgelesen, soweit aktuell ersichtlich.
+
+Die App verarbeitet ohne separate Geräte-Erlaubnis insbesondere folgende Daten: Account- und Profildaten wie Name, Benutzername, E-Mail-Adresse, Passwort-Hash bzw. Authentifizierungsdaten und Altersbestätigung; öffentliche Profilinformationen wie Bio, Interessen, Region und Profilbild; selbst veröffentlichte Inhalte wie Beiträge, Kommentare, Likes, Event-Inhalte, Partner-/Business-Inhalte und Medien-Metadaten; Kommunikationsdaten wie Chat-Nachrichten, Gesprächsbezug, Zeitstempel, Teilnehmer-IDs und Zustell-/Lesestatus; technische Nutzungs- und Sicherheitsdaten wie IP-Adresse, Geräte-/Browserinformationen, Session-Token, Login-Zeitpunkte, Rate-Limit-Informationen, Fehler- und Systemlogs; interne Statistik- und Moderationsdaten wie Meldungen, Sperren, Admin-Aktionen und Nutzungskennzahlen sowie Zahlungs- und Abo-Metadaten, soweit Stripe-Zahlungen oder Partnerfunktionen genutzt werden. Gerätefunktionen wie Kamera, Mikrofon, Standort, Fotos oder Push-Benachrichtigungen werden dagegen nur nach separater Systemfreigabe des Nutzers verwendet.`,
   },
   {
-    heading: "16. Plattformstatistiken und interne Analysen",
-    body: [
-      "Wir erstellen interne Plattformstatistiken, um Betrieb, Sicherheit, Produktqualität und Weiterentwicklung der App zu verbessern. Dazu zählen insbesondere Gesamtzahlen zu Nutzern, aktiven Nutzern, Neuregistrierungen, Abonnements, Beiträgen, Nachrichten, Gruppen, Events, Fotos, Videos und Umsätzen.",
-      "Diese Auswertungen erfolgen grundsätzlich aggregiert oder pseudonymisiert und dienen nicht dazu, einzelne Nutzer werblich zu profilieren. Es werden keine externen Analyse- oder Werbetrackingdienste eingesetzt.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt in Betriebsüberwachung, Fehlererkennung, Sicherheitskontrolle und Verbesserung der App.",
-    ].join("\n\n"),
+    heading: "2.6 Nutzerkonto",
+    body: `Nutzer können in der App ein Nutzerkonto eröffnen. Die in diesem Rahmen abgefragten Daten verarbeiten wir zur Erfüllung des jeweils geschlossenen Nutzungsvertrages über das Konto, so dass Rechtsgrundlage der Verarbeitung Art. 6 Abs. 1 S. 1 lit. b DSGVO ist. Wir löschen die Daten, wenn Nutzer ihr Nutzerkonto löschen.`,
   },
   {
-    heading: "17. Meldungen, Moderation, Blockierungen und Rechtsdurchsetzung",
-    body: [
-      "Wenn Inhalte, Nutzer, Gruppen oder Partnerprofile gemeldet werden, verarbeiten wir die zur Prüfung erforderlichen Daten: meldender Nutzer, gemeldeter Gegenstand, Grund, Begründung, Zeitpunkt, Bearbeitungsstatus und ggf. Moderationsentscheidung.",
-      "Wir können Inhalte prüfen, entfernen, sperren, einschränken, Konten verwarnen oder deaktivieren und relevante Informationen an Behörden weitergeben, soweit dies gesetzlich vorgeschrieben oder zur Rechtsdurchsetzung erforderlich ist.",
-      "Blockierungen werden verarbeitet, um unerwünschte Kontakte und Interaktionen zu verhindern.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO sowie Art. 6 Abs. 1 lit. c DSGVO, soweit gesetzliche Pflichten bestehen.",
-    ].join("\n\n"),
+    heading: "2.7 Single-Sign-On",
+    body: `Nutzer können sich in unserer App mit Hilfe eines oder mehrerer Single-Sign-On-Verfahren anmelden. Dabei nutzen sie die bereits für einen Anbieter erstellten Anmeldedaten. Voraussetzung ist, dass der Nutzer bereits bei dem jeweiligen Anbieter registriert ist. Wenn sich ein Nutzer mittels Single-Sign-On-Verfahrens anmeldet, erhalten wir vom Anbieter die Information, dass der Nutzer bei dem Anbieter eingeloggt ist und der Anbieter erhält die Information, dass der Nutzer das Single-Sign-On-Verfahren in unserer App nutzt. Abhängig von den Einstellungen des Nutzers in seinem Konto auf der Seite des Anbieters, kann es sein, dass uns vom Anbieter zusätzliche Informationen zur Verfügung gestellt werden. Die Rechtsgrundlage dieser Verarbeitung ist Art. 6 Abs. 1 S. 1 lit. f DSGVO. Wir haben ein berechtigtes Interesse, Nutzern eine einfache Log-In-Möglichkeit zur Verfügung zu stellen. Gleichzeitig werden die Interessen der Nutzer gewahrt, da die Nutzung nur freiwillig ist.
+
+Anbieter des oder der angebotenen Verfahren sind:
+
+• Apple Inc., Infinite Loop, Cupertino, CA 95014, USA (Datenschutzerklärung: https://www.apple.com/legal/privacy/de-ww/).
+• Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland (Datenschutzerklärung: https://policies.google.com/privacy).`,
   },
   {
-    heading: "18. E-Mail-Kommunikation und Direktwerbung",
-    body: [
-      "Wir senden transaktionale und sicherheitsrelevante E-Mails, z. B. Passwort-Zurücksetzungen, Sicherheitsbenachrichtigungen, Kontohinweise, Zahlungsinformationen oder wesentliche Änderungen der AGB bzw. Datenschutzerklärung.",
-      "Werbliche E-Mails versenden wir nur, wenn eine ausdrückliche Einwilligung vorliegt oder die gesetzlichen Voraussetzungen der Bestandskundenwerbung nach § 7 Abs. 3 UWG vollständig erfüllt sind. Ohne Einwilligung oder gesetzliche Erlaubnis erfolgt keine werbliche E-Mail-Kommunikation.",
-      "Nutzer können der Nutzung ihrer E-Mail-Adresse zu Werbezwecken jederzeit widersprechen, z. B. per E-Mail an leif@z-social.com oder über einen Abmeldelink in der jeweiligen E-Mail.",
-      "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, Art. 6 Abs. 1 lit. f DSGVO, Art. 6 Abs. 1 lit. a DSGVO und § 7 UWG.",
-    ].join("\n\n"),
+    heading: "2.8 Kauf von Waren oder Dienstleistungen",
+    body: `Wir bieten an, über unsere App Waren oder Dienstleistungen zu erwerben. In den Bestellvorgang oder Versand binden wir die folgenden Dienstleister ein, die zur Erbringung einer Leistung nur die jeweils erforderlichen personenbezogenen Daten erhalten. Die Verarbeitung der Daten erfolgt zur Erbringung des mit dem jeweiligen Nutzer geschlossenen Vertrags (Art. 6 Abs. 1 S. 1 lit. b DSGVO).`,
   },
   {
-    heading: "19. Empfänger und technische Dienstleister",
-    body: [
-      "Zur Bereitstellung der App setzen wir technische Dienstleister ein. Eine Weitergabe erfolgt nur, soweit dies für Betrieb, Vertragserfüllung, Sicherheit, Zahlungsabwicklung, Support, gesetzliche Pflichten oder Rechtsdurchsetzung erforderlich ist.",
-      "19.1 Convex Labs LLC (USA)\nZweck: Backend, Datenbank, Dateispeicherung, Echtzeit-Synchronisation, Serverfunktionen und Hosting der App-Daten.\nVerarbeitete Daten: App- und Nutzerdaten, Inhalte, Medien, technische Daten und Funktionsdaten.\nDrittlandtransfer: Soweit kein Angemessenheitsbeschluss oder keine Zertifizierung nach dem EU-US Data Privacy Framework vorliegt, erfolgt die Übermittlung auf Grundlage geeigneter Garantien, insbesondere EU-Standardvertragsklauseln gemäß Art. 46 DSGVO.",
-      "19.2 Stripe Payments Europe Ltd. / Stripe, Inc.\nZweck: Zahlungsabwicklung, Abonnements, Ticketzahlungen, Rechnungs- und Zahlungsstatus.\nVerarbeitete Daten: zahlungs- und vertragsbezogene Informationen. Vollständige Zahlungsdaten werden durch Stripe verarbeitet.\nDatenschutzhinweise: https://stripe.com/de/privacy",
-      "19.3 Expo / Push-Benachrichtigungsinfrastruktur\nZweck: Zustellung von Push-Benachrichtigungen an mobile Endgeräte.\nVerarbeitete Daten: Push-Token, Plattform- und Zustellinformationen.\nDrittlandtransfer: Soweit erforderlich, auf Grundlage geeigneter Garantien gemäß Art. 46 DSGVO oder einschlägiger Angemessenheitsmechanismen.",
-      "19.4 Next Path Software Consulting Inc. (Metered), Kanada\nZweck: STUN-/TURN-Relayserver für WebRTC-Verbindungen bei Audio-/Videoanrufen und Live-Streams.\nVerarbeitete Daten: IP-Adressen, technische Verbindungsdaten und verschlüsselte Medienströme, soweit eine Relay-Verbindung erforderlich ist.\nDrittlandtransfer: Für Kanada besteht ein Angemessenheitsbeschluss der EU-Kommission, soweit der Empfänger dem kanadischen Datenschutzrecht unterfällt; im Übrigen geeignete Garantien wie EU-Standardvertragsklauseln.",
-      "19.5 Plus Five Five, Inc. (Resend), USA\nZweck: Versand transaktionaler E-Mails, Passwort-Zurücksetzungen, Sicherheits- und Systembenachrichtigungen.\nVerarbeitete Daten: E-Mail-Adresse, Name soweit angegeben, E-Mail-Inhalt und Zustelldaten.\nDatenschutzhinweise: https://resend.com/legal/privacy-policy",
-      "19.6 Google Ireland Ltd. / Google LLC\nZweck: Google-Login, soweit der Nutzer diesen verwendet.\nVerarbeitete Daten: Google-Konto-ID, Name, E-Mail-Adresse und technische Login-Informationen.\nDatenschutzhinweise: https://policies.google.com/privacy",
-      "Eine kommerzielle Weitergabe oder ein Verkauf personenbezogener Daten an Dritte findet nicht statt.",
-    ].join("\n\n"),
+    heading: "2.9 Zahlungsdienstleister",
+    body: `Zur Abwicklung von Zahlungen nutzen wir Zahlungsabwickler, die selbst datenschutzrechtlich Verantwortliche im Sinne von Art. 4 Nr. 7 DSGVO sind. Soweit diese von uns im Bestellprozess eingegebene Daten und Zahlungsdaten erhalten, erfüllen wir damit den mit unseren Kunden geschlossenen Vertrag (Art. 6 Abs. 1 S. 1 lit. b DSGVO).
+
+• American Express Europe S.A.
+• Apple Inc., USA (for Apple Pay)
+• Google Ireland Limited, Ireland (for Google Pay)
+• Mastercard Europe SA, Belgium
+• PayPal (Europe) S.à r.l. et Cie, S.C.A., Luxemburg
+• Stripe Payments Europe, Ltd., Ireland`,
   },
   {
-    heading: "20. Drittlandübermittlungen",
-    body: [
-      "Personenbezogene Daten können durch eingesetzte Dienstleister in Drittländern, insbesondere den USA und Kanada, verarbeitet werden.",
-      "Soweit ein Angemessenheitsbeschluss der EU-Kommission besteht oder der jeweilige Empfänger nach dem EU-US Data Privacy Framework zertifiziert ist, stützen wir die Übermittlung hierauf. Andernfalls erfolgt die Übermittlung auf Grundlage geeigneter Garantien, insbesondere EU-Standardvertragsklauseln gemäß Art. 46 DSGVO und ergänzender Schutzmaßnahmen, soweit erforderlich.",
-      "Wir weisen darauf hin, dass in Drittländern ein Zugriff durch Behörden nicht vollständig ausgeschlossen werden kann.",
-    ].join("\n\n"),
+    heading: "2.10 Tools von Drittanbietern",
+    body: "",
   },
   {
-    heading: "21. Speicherdauer und Löschung",
-    body: [
-      "Wir speichern personenbezogene Daten nur so lange, wie dies für die jeweiligen Zwecke erforderlich ist oder gesetzliche Aufbewahrungspflichten bestehen.",
-      "• Kontodaten und Profildaten: für die Dauer des Nutzerkontos; bei Kontolöschung Löschung, soweit keine Aufbewahrungspflichten oder berechtigten Gründe entgegenstehen.\n• Beiträge, Fotos, Videos, Kommentare, Likes und gespeicherte Beiträge: bis zur Löschung durch den Nutzer, im Rahmen der Kontolöschung oder durch Moderation.\n• Direktnachrichten: bleiben im Gesprächsverlauf der Gesprächspartner erhalten, auch wenn das Konto des Absenders gelöscht wird; Profil- und Kontodaten des gelöschten Nutzers werden entfernt.\n• Gruppenmitgliedschaften, Freundschaftsanfragen, Benachrichtigungen und Tickets: grundsätzlich bis zur Kontolöschung oder Zweckerreichung.\n• Anruf- und Live-Stream-Metadaten: solange dies für Bereitstellung, Sicherheit, Fehleranalyse oder Moderation erforderlich ist.\n• Zahlungs- und Rechnungsdaten: nach gesetzlichen Aufbewahrungspflichten, regelmäßig bis zu 10 Jahre.\n• Meldungen und Moderationsdaten: bis zur abschließenden Bearbeitung und darüber hinaus, soweit dies für Rechtsdurchsetzung, Missbrauchsvermeidung oder Nachweispflichten erforderlich ist.\n• Sicherheits- und Logdaten: nur solange erforderlich, regelmäßig begrenzt und zweckgebunden.\n• Backups: werden nach technischen Lösch- und Überschreibzyklen entfernt.",
-      "Soweit Daten auf Einwilligung beruhen, werden sie nach Widerruf gelöscht, sofern keine andere Rechtsgrundlage oder gesetzliche Pflicht entgegensteht.",
-    ].join("\n\n"),
+    heading: "2.10.1 heyData",
+    body: `Wir haben ein Datenschutz-Siegel eingebunden. Der Anbieter ist heyData GmbH, Schützenstraße 5, 10117 Berlin, Deutschland. Der Anbieter verarbeitet Meta-/Kommunikationsdaten (z.B. IP-Adressen) in der EU. Die Rechtsgrundlage der Verarbeitung ist Art. 6 Abs. 1 S. 1 lit. f DSGVO. Wir haben ein berechtigtes Interesse, Website-Besuchern eine Bestätigung über unsere Datenschutz-Compliance zur Verfügung zu stellen. Gleichzeitig hat der Anbieter ein berechtigtes Interesse daran, sicherzustellen, dass nur Kunden mit bestehenden Verträgen seine Siegel nutzen, weshalb eine bloße Bildkopie des Zertifikats keine gangbare Alternative zur Bestätigung darstellt.
+
+Die Daten werden nach der Erhebung maskiert, damit kein Personenbezug mehr besteht. Weitere Informationen sind in der Datenschutzerklärung des Anbieters unter https://heydata.eu/datenschutzerklaerung abrufbar.`,
   },
   {
-    heading: "22. Rechte betroffener Personen",
-    body: [
-      "Betroffene Personen haben nach Maßgabe der DSGVO folgende Rechte:",
-      "• Auskunft (Art. 15 DSGVO)\n• Berichtigung (Art. 16 DSGVO)\n• Löschung (Art. 17 DSGVO)\n• Einschränkung der Verarbeitung (Art. 18 DSGVO)\n• Unterrichtung über Berichtigung, Löschung oder Einschränkung (Art. 19 DSGVO)\n• Datenübertragbarkeit (Art. 20 DSGVO)\n• Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen (Art. 21 DSGVO)\n• Widerruf einer Einwilligung mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO)",
-      "Anfragen können an leif@z-social.com gerichtet werden. Wir beantworten Anfragen grundsätzlich innerhalb eines Monats.",
-      "Das Recht auf Löschung kann eingeschränkt sein, soweit gesetzliche Aufbewahrungspflichten, berechtigte Nachweisinteressen, Rechte anderer Nutzer oder die Integrität von Kommunikationsverläufen entgegenstehen.",
-    ].join("\n\n"),
+    heading: "3. Änderungen dieser Datenschutzerklärung",
+    body: `Wir behalten uns das Recht vor, diese Datenschutzerklärung mit Wirkung für die Zukunft zu ändern. Eine aktuelle Version ist jeweils hier verfügbar.`,
   },
   {
-    heading: "23. Widerspruchsrecht nach Art. 21 DSGVO",
-    body: [
-      "Wenn wir personenbezogene Daten auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO verarbeiten, können Nutzer aus Gründen, die sich aus ihrer besonderen Situation ergeben, jederzeit Widerspruch gegen die Verarbeitung einlegen.",
-      "Wir verarbeiten die betroffenen Daten dann nicht mehr, es sei denn, wir können zwingende schutzwürdige Gründe nachweisen, die die Interessen, Rechte und Freiheiten der betroffenen Person überwiegen, oder die Verarbeitung dient der Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen.",
-      "Gegen Direktwerbung kann jederzeit ohne Angabe von Gründen widersprochen werden.",
-    ].join("\n\n"),
-  },
-  {
-    heading: "24. Beschwerderecht bei einer Aufsichtsbehörde",
-    body: [
-      "Nutzer haben das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren, insbesondere in dem Mitgliedstaat ihres Aufenthaltsorts, ihres Arbeitsplatzes oder des Orts des mutmaßlichen Verstoßes.",
-      "Für Mecklenburg-Vorpommern ist zuständig:",
-      "Der Landesbeauftragte für Datenschutz und Informationsfreiheit Mecklenburg-Vorpommern\nSchloss Schwerin\nLennéstraße 1\n19053 Schwerin\nDeutschland",
-      "Telefon: +49 385 59494 0\nE-Mail: datenschutz@datenschutz-mv.de\nWebsite: https://www.datenschutz-mv.de",
-    ].join("\n\n"),
-  },
-  {
-    heading: "25. Datensicherheit",
-    body: [
-      "Wir setzen technische und organisatorische Maßnahmen ein, um personenbezogene Daten gegen Verlust, Missbrauch, unbefugten Zugriff, Veränderung und unbefugte Weitergabe zu schützen.",
-      "Dazu gehören insbesondere verschlüsselte Übertragung (TLS), Passwort-Hashing, Zugriffsbeschränkungen, rollenbasierte Berechtigungen, technische Protokollierung, Missbrauchsprävention, regelmäßige Sicherheitsprüfungen und verschlüsselte Medienübertragung bei WebRTC nach Stand der Technik.",
-      "Trotz aller Maßnahmen kann keine absolute Sicherheit garantiert werden. Nutzer sollten sichere Passwörter verwenden und Zugangsdaten nicht weitergeben.",
-    ].join("\n\n"),
-  },
-  {
-    heading: "26. Minderjährige",
-    body: [
-      "Die App ist für Personen ab 16 Jahren bestimmt. Personen unter 16 Jahren dürfen kein Konto erstellen.",
-      "Sollten wir Kenntnis davon erlangen, dass ein Kind unter 16 Jahren ein Konto erstellt hat, werden wir das Konto sperren oder löschen und die zugehörigen Daten entfernen, soweit keine gesetzlichen Gründe entgegenstehen.",
-    ].join("\n\n"),
-  },
-  {
-    heading: "27. Keine automatisierten Einzelentscheidungen",
-    body: "Es findet keine ausschließlich automatisierte Entscheidung im Sinne von Art. 22 DSGVO statt, die gegenüber Nutzern rechtliche Wirkung entfaltet oder sie in ähnlicher Weise erheblich beeinträchtigt.",
-  },
-  {
-    heading: "28. Änderungen dieser Datenschutzerklärung",
-    body: [
-      "Wir können diese Datenschutzerklärung anpassen, wenn sich Rechtslage, App-Funktionen, technische Abläufe oder eingesetzte Dienstleister ändern.",
-      `Die aktuelle Fassung ist jederzeit in der App im Privacy Center sowie unter ${LEGAL_URLS.privacy} abrufbar. Bei wesentlichen Änderungen informieren wir Nutzer in angemessener Weise, z. B. per E-Mail oder In-App-Hinweis.`,
-      "Stand: Mai 2026",
-    ].join("\n\n"),
+    heading: "4. Fragen und Kommentare",
+    body: `Für Fragen oder Kommentare bezüglich dieser Datenschutzerklärung stehen wir gern unter den oben angegebenen Kontaktdaten zur Verfügung.`,
   },
 ];
 
