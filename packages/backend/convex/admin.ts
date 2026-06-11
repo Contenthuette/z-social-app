@@ -7,6 +7,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { paginatedResultValidator } from "./pagination";
 import { internal } from "./_generated/api";
 import { rateLimiter, INPUT_LIMITS, validateStringLength, sanitizeText } from "./rateLimit";
+import { deleteUserPersonalData } from "./retention";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
 type AdminReadCtx = {
@@ -1643,113 +1644,12 @@ export const deleteUserAdmin = authMutation({
     if (!user) throw new Error("Nutzer nicht gefunden");
     if (user.role === "admin") throw new Error("Admin-Profile können nicht gelöscht werden");
 
-    const email = user.email;
-    const name = user.name;
-    const stripeSubscriptionId = user.stripeSubscriptionId;
+    const deletionResult = await deleteUserPersonalData(ctx, user, "admin");
 
-    // 1. Delete user's posts and related data
-    const posts = await ctx.db
-      .query("posts")
-      .withIndex("by_authorId", (q) => q.eq("authorId", args.userId))
-      .collect();
-    for (const post of posts) {
-      const [likes, comments, saved] = await Promise.all([
-        ctx.db.query("likes").withIndex("by_postId", (q) => q.eq("postId", post._id)).collect(),
-        ctx.db.query("comments").withIndex("by_postId", (q) => q.eq("postId", post._id)).collect(),
-        ctx.db.query("savedPosts").withIndex("by_postId_and_userId", (q) => q.eq("postId", post._id)).collect(),
-      ]);
-      for (const like of likes) await ctx.db.delete(like._id);
-      for (const comment of comments) {
-        const commentLikes = await ctx.db.query("commentLikes").withIndex("by_commentId", (q) => q.eq("commentId", comment._id)).collect();
-        for (const commentLike of commentLikes) await ctx.db.delete(commentLike._id);
-        await ctx.db.delete(comment._id);
-      }
-      for (const savedPost of saved) await ctx.db.delete(savedPost._id);
-      if (post.mediaStorageId) await ctx.storage.delete(post.mediaStorageId);
-      if (post.thumbnailStorageId) await ctx.storage.delete(post.thumbnailStorageId);
-      await ctx.db.delete(post._id);
-    }
-
-    // 2. Delete user's likes on others' posts
-    const userLikes = await ctx.db
-      .query("likes")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const like of userLikes) await ctx.db.delete(like._id);
-
-    // 3. Delete user's saved posts
-    const userSaved = await ctx.db
-      .query("savedPosts")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const savedPost of userSaved) await ctx.db.delete(savedPost._id);
-
-    // 4. Delete group memberships
-    const memberships = await ctx.db
-      .query("groupMembers")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const membership of memberships) {
-      await ctx.db.delete(membership._id);
-      const group = await ctx.db.get(membership.groupId);
-      if (group && group.memberCount > 0) {
-        await ctx.db.patch(membership.groupId, { memberCount: group.memberCount - 1 });
-      }
-    }
-
-    // 5. Delete conversation read status and settings
-    const readStatuses = await ctx.db
-      .query("conversationReadStatus")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const rs of readStatuses) await ctx.db.delete(rs._id);
-
-    const convSettings = await ctx.db
-      .query("conversationSettings")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const cs of convSettings) await ctx.db.delete(cs._id);
-
-    // 6. Delete friend requests (sent and received)
-    const sentRequests = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_senderId", (q) => q.eq("senderId", args.userId))
-      .collect();
-    for (const request of sentRequests) await ctx.db.delete(request._id);
-
-    // Also delete requests where this user is receiver
-    const receivedRequests = await ctx.db
-      .query("friendRequests")
-      .withIndex("by_receiverId", (q) => q.eq("receiverId", args.userId))
-      .collect();
-    for (const request of receivedRequests) await ctx.db.delete(request._id);
-
-    // 7. Delete notifications
-    const notifications = await ctx.db
-      .query("notifications")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const notification of notifications) await ctx.db.delete(notification._id);
-
-    // 8. Delete tickets
-    const tickets = await ctx.db
-      .query("tickets")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    for (const ticket of tickets) await ctx.db.delete(ticket._id);
-
-    // 9. Delete avatar & banner from storage
-    if (user.avatarStorageId) await ctx.storage.delete(user.avatarStorageId);
-    if (user.bannerStorageId) await ctx.storage.delete(user.bannerStorageId);
-
-    // 10. Delete the user record
-    await ctx.db.delete(args.userId);
-
-    // 11. Schedule Stripe cancellation + email (runs async in Node runtime)
     await ctx.scheduler.runAfter(0, internal.adminActions.processUserDeletion, {
-      email,
-      name,
-      stripeSubscriptionId,
+      email: deletionResult.email,
+      name: deletionResult.name,
+      stripeSubscriptionId: deletionResult.stripeSubscriptionId,
     });
     // Scheduler safe: one-shot, triggered only by admin action
 

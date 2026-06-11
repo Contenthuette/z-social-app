@@ -24,4 +24,32 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  "gdpr cleanup old operational data",
+  { hours: 6 },
+  internal.retention.cleanupOldOperationalData,
+  {},
+);
+
+crons.interval(
+  "gdpr cleanup old notifications",
+  { hours: 12 },
+  internal.retention.cleanupOldNotifications,
+  {},
+);
+
+crons.interval(
+  "gdpr anonymize old moderation reports",
+  { hours: 24 },
+  internal.retention.anonymizeOldModerationReports,
+  {},
+);
+
+crons.interval(
+  "gdpr cleanup inactive accounts",
+  { hours: 24 },
+  internal.retention.cleanupInactiveAccounts,
+  {},
+);
+
 export default crons;

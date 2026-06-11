@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { authClient } from "@/lib/auth-client";
 import { signalIntentionalLogout } from "@/lib/ConvexAuthProvider";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, spacing, radius } from "@/lib/theme";
 import { safeBack } from "@/lib/navigation";
@@ -53,11 +53,13 @@ export default function SettingsScreen() {
   const { isAuthenticated } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = React.useState(false);
   const me = useQuery(api.users.me, isAuthenticated && !isSigningOut ? {} : "skip");
+  const removePushToken = useMutation(api.pushNotifications.removeToken);
   const isAdmin = me?.role === "admin" || me?.email === "leif@z-social.com";
 
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
+      await removePushToken().catch(() => undefined);
       signalIntentionalLogout();
       router.replace("/(auth)/welcome");
       await authClient.signOut();

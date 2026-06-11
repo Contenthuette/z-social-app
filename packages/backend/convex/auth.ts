@@ -7,6 +7,7 @@ import { DataModel } from "./_generated/dataModel";
 import { anonymous } from "better-auth/plugins";
 import authConfig from "./auth.config";
 import { buildUserSearchText } from "./searchText";
+import { deleteUserPersonalData } from "./retention";
 
 const authFunctions: AuthFunctions = internal.auth;
 
@@ -97,6 +98,16 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
                     role: isAdminEmail(newDoc.email) ? "admin" : existingUser.role,
                 });
             },
+            onDelete: async (ctx, doc) => {
+                const existingUser = await ctx.db
+                    .query("users")
+                    .withIndex("by_authId", (q) => q.eq("authId", doc._id))
+                    .unique();
+                if (!existingUser) {
+                    return;
+                }
+                await deleteUserPersonalData(ctx, existingUser, "self_service");
+            },
         },
     },
 });
@@ -138,6 +149,11 @@ export const createAuth = (
         },
         trustedOrigins,
         database: authComponent.adapter(ctx),
+        user: {
+            deleteUser: {
+                enabled: true,
+            },
+        },
         emailAndPassword: {
             enabled: true,
             requireEmailVerification: false,

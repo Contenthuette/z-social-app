@@ -52,6 +52,7 @@ export default function EditProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const deleteMyAccount = useMutation(api.accountDeletion.deleteMyAccount);
+  const removePushToken = useMutation(api.pushNotifications.removeToken);
 
   useEffect(() => {
     if (me) {
@@ -153,7 +154,11 @@ export default function EditProfileScreen() {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     try {
+      await removePushToken().catch(() => undefined);
       await deleteMyAccount();
+      await authClient.deleteUser().catch((error: unknown) => {
+        console.warn("Auth account deletion failed after app data deletion:", error);
+      });
       await authClient.signOut();
       setShowDeleteModal(false);
       router.replace("/");

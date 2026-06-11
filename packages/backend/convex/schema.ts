@@ -126,7 +126,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_conversationId", ["conversationId"])
-    .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"]),
+    .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"])
+    .index("by_senderId", ["senderId"]),
 
   // ── Conversation Read Status ───────────────────────────────────
   conversationReadStatus: defineTable({
@@ -198,7 +199,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_commentId", ["commentId"])
-    .index("by_commentId_and_userId", ["commentId", "userId"]),
+    .index("by_commentId_and_userId", ["commentId", "userId"])
+    .index("by_userId", ["userId"]),
 
   savedPosts: defineTable({
     postId: v.id("posts"),
@@ -274,7 +276,8 @@ export default defineSchema({
     .index("by_eventId", ["eventId"])
     .index("by_userId", ["userId"])
     .index("by_eventId_and_userId", ["eventId", "userId"])
-    .index("by_userId_and_status", ["userId", "status"]),
+    .index("by_userId_and_status", ["userId", "status"])
+    .index("by_invitedBy", ["invitedBy"]),
 
   // ── Member Events (community events by users) ───────────────
   memberEvents: defineTable({
@@ -369,7 +372,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_userId", ["userId"])
-    .index("by_userId_and_isRead", ["userId", "isRead"]),
+    .index("by_userId_and_isRead", ["userId", "isRead"])
+    .index("by_createdAt", ["createdAt"]),
 
   // ── Reports / Moderation ───────────────────────────────────────
   reports: defineTable({
@@ -383,7 +387,9 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_type_and_status", ["type", "status"])
-    .index("by_reporterId_and_targetId", ["reporterId", "targetId"]),
+    .index("by_reporterId_and_targetId", ["reporterId", "targetId"])
+    .index("by_reporterId", ["reporterId"])
+    .index("by_createdAt", ["createdAt"]),
 
   blockedUsers: defineTable({
     blockerId: v.id("users"),
@@ -510,7 +516,8 @@ export default defineSchema({
     joinedAt: v.number(),
   })
     .index("by_livestreamId", ["livestreamId"])
-    .index("by_livestreamId_and_userId", ["livestreamId", "userId"]),
+    .index("by_livestreamId_and_userId", ["livestreamId", "userId"])
+    .index("by_userId", ["userId"]),
 
   livestreamComments: defineTable({
     livestreamId: v.id("livestreams"),
@@ -520,7 +527,8 @@ export default defineSchema({
     text: v.string(),
     createdAt: v.number(),
   })
-    .index("by_livestreamId_and_createdAt", ["livestreamId", "createdAt"]),
+    .index("by_livestreamId_and_createdAt", ["livestreamId", "createdAt"])
+    .index("by_userId", ["userId"]),
 
   livestreamSignaling: defineTable({
     livestreamId: v.id("livestreams"),
@@ -533,7 +541,10 @@ export default defineSchema({
     ),
     payload: v.string(),
   })
-    .index("by_livestreamId_and_recipientId", ["livestreamId", "recipientId"]),
+    .index("by_livestreamId_and_recipientId", ["livestreamId", "recipientId"])
+    .index("by_livestreamId", ["livestreamId"])
+    .index("by_senderId", ["senderId"])
+    .index("by_recipientId", ["recipientId"]),
 
   communityInterests: defineTable({
     name: v.string(),
@@ -553,7 +564,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_livestreamId_and_status", ["livestreamId", "status"])
-    .index("by_livestreamId_and_userId", ["livestreamId", "userId"]),
+    .index("by_livestreamId_and_userId", ["livestreamId", "userId"])
+    .index("by_userId", ["userId"]),
 
   // ── Announcements ──────────────────────────────────────────────
   announcements: defineTable({
@@ -587,5 +599,6 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_pollId", ["pollId"])
-    .index("by_pollId_and_userId", ["pollId", "userId"]),
+    .index("by_pollId_and_userId", ["pollId", "userId"])
+    .index("by_userId", ["userId"]),
 });
