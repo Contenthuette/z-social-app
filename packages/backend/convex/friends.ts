@@ -193,9 +193,8 @@ export const acceptRequest = authMutation({
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
     if (request.receiverId !== myUserId) throw new Error("Not your request");
-    if (request.status === "declined") throw new Error("Request already handled");
-
     const isFirstAccept = request.status === "pending";
+    const acceptFinalStatus = isFirstAccept ? "accepted" : request.status;
     if (isFirstAccept) {
       await ctx.db.patch(args.requestId, {
         status: "accepted",
@@ -215,8 +214,11 @@ export const acceptRequest = authMutation({
     for (const n of acceptNotifs) {
       if (n.type === "friend_request" && n.referenceId && String(n.referenceId) === String(args.requestId)) {
         await ctx.db.patch(n._id, {
-          type: "friend_request_accepted",
-          body: `Freundschaftsanfrage von ${acceptSender?.name ?? "jemandem"} angenommen`,
+          type: acceptFinalStatus === "declined" ? "friend_request_declined" : "friend_request_accepted",
+          body:
+            acceptFinalStatus === "declined"
+              ? `Freundschaftsanfrage von ${acceptSender?.name ?? "jemandem"} abgelehnt`
+              : `Freundschaftsanfrage von ${acceptSender?.name ?? "jemandem"} angenommen`,
           isRead: true,
         });
       }
@@ -258,17 +260,17 @@ export const declineRequest = authMutation({
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
     if (request.receiverId !== myUserId) throw new Error("Not your request");
-    if (request.status === "accepted") throw new Error("Request already handled");
-
-    if (request.status === "pending") {
+    const isFirstDecline = request.status === "pending";
+    const declineFinalStatus = isFirstDecline ? "declined" : request.status;
+    if (isFirstDecline) {
       await ctx.db.patch(args.requestId, {
         status: "declined",
         respondedAt: Date.now(),
       });
     }
 
-    // Always mark the friend-request notification as handled (declined) so the
-    // buttons vanish — runs even if already declined (repairs old notifications).
+    // Always reconcile the friend-request notification to the real status so the
+    // buttons vanish and it shows the correct outcome — never throws.
     const declineSender = await ctx.db.get(request.senderId);
     const declineNotifs = await ctx.db
       .query("notifications")
@@ -277,8 +279,11 @@ export const declineRequest = authMutation({
     for (const n of declineNotifs) {
       if (n.type === "friend_request" && n.referenceId && String(n.referenceId) === String(args.requestId)) {
         await ctx.db.patch(n._id, {
-          type: "friend_request_declined",
-          body: `Freundschaftsanfrage von ${declineSender?.name ?? "jemandem"} abgelehnt`,
+          type: declineFinalStatus === "accepted" ? "friend_request_accepted" : "friend_request_declined",
+          body:
+            declineFinalStatus === "accepted"
+              ? `Freundschaftsanfrage von ${declineSender?.name ?? "jemandem"} angenommen`
+              : `Freundschaftsanfrage von ${declineSender?.name ?? "jemandem"} abgelehnt`,
           isRead: true,
         });
       }
