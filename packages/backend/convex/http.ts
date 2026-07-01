@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { authComponent, createAuth } from "./auth";
+import { resetPasswordPage } from "./resetPasswordPage";
 
 const http = httpRouter();
 
@@ -120,6 +121,14 @@ http.route({
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+  }),
+});
+
+http.route({
+  path: "/reset-password",
+  method: "GET",
+  handler: httpAction(async () => {
+    return new Response(resetPasswordPage(), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
   }),
 });
 
