@@ -11,8 +11,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Z benötigt Zugriff auf die Kamera für Videoanrufe.",
-        "NSMicrophoneUsageDescription": "Z benötigt Zugriff auf das Mikrofon für Anrufe."
-      }
+        "NSMicrophoneUsageDescription": "Z benötigt Zugriff auf das Mikrofon für Anrufe.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.zsocial.zsocial"
     },
     "android": {
       "adaptiveIcon": {
@@ -47,6 +49,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3e99e16e-5166-47eb-8ff6-2e351d3a0a79"
+      }
     }
   }
 }
