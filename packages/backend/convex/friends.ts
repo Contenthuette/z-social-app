@@ -193,16 +193,20 @@ export const acceptRequest = authMutation({
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
     if (request.receiverId !== myUserId) throw new Error("Not your request");
-    if (request.status === "accepted") return null; // idempotent: already accepted (e.g. double-tap) — no error dialog
-    if (request.status !== "pending") throw new Error("Request already handled");
+    if (request.status === "declined") throw new Error("Request already handled");
 
-    await ctx.db.patch(args.requestId, {
-      status: "accepted",
-      respondedAt: Date.now(),
-    });
+    const isFirstAccept = request.status === "pending";
+    if (isFirstAccept) {
+      await ctx.db.patch(args.requestId, {
+        status: "accepted",
+        respondedAt: Date.now(),
+      });
+    }
 
-    // Mark the actionable friend-request notification as handled so it shows
-    // "angenommen" (no buttons) and persists across reopen.
+    // Always mark the receiver's friend-request notification as handled so the
+    // Accept/Decline buttons disappear and it shows "angenommen". This runs even
+    // when the request was already accepted (repairs notifications from before
+    // this fix, and handles double-taps).
     const acceptSender = await ctx.db.get(request.senderId);
     const acceptNotifs = await ctx.db
       .query("notifications")
@@ -218,23 +222,26 @@ export const acceptRequest = authMutation({
       }
     }
 
-    const myUser = await ctx.db.get(myUserId);
-    await ctx.db.insert("notifications", {
-      userId: request.senderId,
-      type: "friend_accepted",
-      title: "Freundschaft bestätigt",
-      body: `${myUser?.name ?? "Jemand"} hat deine Freundschaftsanfrage angenommen`,
-      referenceId: myUserId,
-      isRead: false,
-      createdAt: Date.now(),
-    });
+    // Notify the sender only on the first acceptance (avoid duplicates on re-tap).
+    if (isFirstAccept) {
+      const myUser = await ctx.db.get(myUserId);
+      await ctx.db.insert("notifications", {
+        userId: request.senderId,
+        type: "friend_accepted",
+        title: "Freundschaft bestätigt",
+        body: `${myUser?.name ?? "Jemand"} hat deine Freundschaftsanfrage angenommen`,
+        referenceId: myUserId,
+        isRead: false,
+        createdAt: Date.now(),
+      });
 
-    await ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
-      userId: request.senderId,
-      title: "Freundschaft bestätigt",
-      body: `${myUser?.name ?? "Jemand"} hat deine Freundschaftsanfrage angenommen`,
-      category: "announcements",
-    });
+      await ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
+        userId: request.senderId,
+        title: "Freundschaft bestätigt",
+        body: `${myUser?.name ?? "Jemand"} hat deine Freundschaftsanfrage angenommen`,
+        category: "announcements",
+      });
+    }
     return null;
   },
 });
@@ -251,15 +258,17 @@ export const declineRequest = authMutation({
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
     if (request.receiverId !== myUserId) throw new Error("Not your request");
-    if (request.status === "declined") return null; // idempotent: already declined (e.g. double-tap) — no error dialog
-    if (request.status !== "pending") throw new Error("Request already handled");
+    if (request.status === "accepted") throw new Error("Request already handled");
 
-    await ctx.db.patch(args.requestId, {
-      status: "declined",
-      respondedAt: Date.now(),
-    });
+    if (request.status === "pending") {
+      await ctx.db.patch(args.requestId, {
+        status: "declined",
+        respondedAt: Date.now(),
+      });
+    }
 
-    // Mark the friend-request notification as handled (declined) so buttons vanish.
+    // Always mark the friend-request notification as handled (declined) so the
+    // buttons vanish — runs even if already declined (repairs old notifications).
     const declineSender = await ctx.db.get(request.senderId);
     const declineNotifs = await ctx.db
       .query("notifications")
