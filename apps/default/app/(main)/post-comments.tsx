@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity, Platform, ActivityIndicator,
@@ -19,8 +19,24 @@ export default function PostCommentsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
+  const [kbHeight, setKbHeight] = useState(0);
   const inputRef = useRef<TextInput>(null);
   const { isAuthenticated } = useConvexAuth();
+
+  // Manually lift the input bar above the keyboard. Inside an iOS formSheet
+  // the native auto-resize is unreliable, so we track the keyboard height.
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKbHeight(e.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const me = useQuery(api.users.me, isAuthenticated ? undefined : "skip");
   const meId = me?._id;
@@ -92,7 +108,7 @@ export default function PostCommentsScreen() {
   }, [meId, handleDeleteComment]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: kbHeight }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -168,7 +184,7 @@ export default function PostCommentsScreen() {
         />
 
         {/* Input bar - send button matches input height */}
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        <View style={[styles.inputBar, { paddingBottom: kbHeight > 0 ? 10 : Math.max(insets.bottom, 14) }]}>
           <TextInput
             ref={inputRef}
             style={styles.input}
@@ -242,7 +258,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
   },
   emptyWrap: {
