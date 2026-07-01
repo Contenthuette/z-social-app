@@ -4,7 +4,6 @@ import { useQuery, Authenticated, Unauthenticated, AuthLoading, useConvexAuth } 
 import { api } from "@/convex/_generated/api";
 import { router } from "expo-router";
 import { colors } from "@/lib/theme";
-import { ZLogo } from "@/components/ZLogo";
 import { usePushNotifications } from "@/lib/push-notifications";
 
 function AuthenticatedRouter() {
@@ -54,7 +53,6 @@ function AuthenticatedRouter() {
 
   return (
     <View style={styles.container}>
-      <ZLogo size={56} />
       <ActivityIndicator style={styles.spinner} color={colors.gray400} />
     </View>
   );
@@ -80,8 +78,7 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <AuthLoading>
-        <ZLogo size={56} />
-        <ActivityIndicator style={styles.spinner} color={colors.gray400} />
+          <ActivityIndicator style={styles.spinner} color={colors.gray400} />
       </AuthLoading>
       <Unauthenticated>
         <UnauthenticatedRedirect />
@@ -100,7 +97,6 @@ function UnauthenticatedRedirect() {
 
   return (
     <View style={styles.container}>
-      <ZLogo size={56} />
       <ActivityIndicator style={styles.spinner} color={colors.gray400} />
     </View>
   );
