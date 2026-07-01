@@ -75,8 +75,9 @@ export default function MainLayout() {
         <Stack.Screen name="create-post" options={{ presentation: "modal" }} />
         <Stack.Screen name="create-poll" options={{ presentation: "modal" }} />
         <Stack.Screen name="post-comments" options={{
-          presentation: "fullScreenModal",
-          animation: "slide_from_bottom",
+          presentation: "formSheet",
+          sheetGrabberVisible: true,
+          sheetAllowedDetents: [0.6],
           headerShown: false,
         }} />
         <Stack.Screen name="search" options={{ animation: "slide_from_right" }} />

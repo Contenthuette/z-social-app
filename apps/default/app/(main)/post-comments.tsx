@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity, Platform, ActivityIndicator,
-  Keyboard, Alert, KeyboardAvoidingView,
+  Keyboard, Alert,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
@@ -12,7 +12,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { colors, spacing } from "@/lib/theme";
 import { Avatar } from "@/components/Avatar";
 import { SymbolView } from "@/components/Icon";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 export default function PostCommentsScreen() {
@@ -92,7 +92,7 @@ export default function PostCommentsScreen() {
   }, [meId, handleDeleteComment]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -106,11 +106,7 @@ export default function PostCommentsScreen() {
         <View style={styles.closePlaceholder} />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {/* Comments list */}
+      {/* Comments list */}
         <FlatList
           style={styles.list}
           data={comments ?? []}
@@ -198,8 +194,7 @@ export default function PostCommentsScreen() {
             <SymbolView name="arrow.up" size={16} tintColor={colors.white} />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
