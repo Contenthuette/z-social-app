@@ -13,6 +13,7 @@ import { SymbolView } from "@/components/Icon";
 import { ChatInputBar } from "@/components/ChatInputBar";
 import type { MediaPickResult } from "@/components/ChatInputBar";
 import { SharedPostBubble } from "@/components/SharedPostBubble";
+import { SharedProfileBubble } from "@/components/SharedProfileBubble";
 import { VoiceMessageBubble } from "@/components/VoiceMessageBubble";
 import { MediaMessageBubble } from "@/components/MediaMessageBubble";
 import { Avatar } from "@/components/Avatar";
@@ -186,6 +187,25 @@ export default function ChatScreen() {
             <SharedPostBubble
               postId={item.sharedPostId}
               preview={item.sharedPostPreview ?? undefined}
+              isMine={isMine}
+              timestamp={timeStr}
+            />
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    if (item.type === "profile_share" && item.sharedProfileId) {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={() => handleLongPressMessage(item)}
+          delayLongPress={500}
+          disabled={!isMine}
+        >
+          <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
+            <SharedProfileBubble
+              profileUserId={item.sharedProfileId}
               isMine={isMine}
               timestamp={timeStr}
             />

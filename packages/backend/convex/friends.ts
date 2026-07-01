@@ -193,12 +193,30 @@ export const acceptRequest = authMutation({
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
     if (request.receiverId !== myUserId) throw new Error("Not your request");
+    if (request.status === "accepted") return null; // idempotent: already accepted (e.g. double-tap) — no error dialog
     if (request.status !== "pending") throw new Error("Request already handled");
 
     await ctx.db.patch(args.requestId, {
       status: "accepted",
       respondedAt: Date.now(),
     });
+
+    // Mark the actionable friend-request notification as handled so it shows
+    // "angenommen" (no buttons) and persists across reopen.
+    const acceptSender = await ctx.db.get(request.senderId);
+    const acceptNotifs = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    for (const n of acceptNotifs) {
+      if (n.type === "friend_request" && n.referenceId && String(n.referenceId) === String(args.requestId)) {
+        await ctx.db.patch(n._id, {
+          type: "friend_request_accepted",
+          body: `Freundschaftsanfrage von ${acceptSender?.name ?? "jemandem"} angenommen`,
+          isRead: true,
+        });
+      }
+    }
 
     const myUser = await ctx.db.get(myUserId);
     await ctx.db.insert("notifications", {
@@ -233,12 +251,29 @@ export const declineRequest = authMutation({
     const request = await ctx.db.get(args.requestId);
     if (!request) throw new Error("Request not found");
     if (request.receiverId !== myUserId) throw new Error("Not your request");
+    if (request.status === "declined") return null; // idempotent: already declined (e.g. double-tap) — no error dialog
     if (request.status !== "pending") throw new Error("Request already handled");
 
     await ctx.db.patch(args.requestId, {
       status: "declined",
       respondedAt: Date.now(),
     });
+
+    // Mark the friend-request notification as handled (declined) so buttons vanish.
+    const declineSender = await ctx.db.get(request.senderId);
+    const declineNotifs = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    for (const n of declineNotifs) {
+      if (n.type === "friend_request" && n.referenceId && String(n.referenceId) === String(args.requestId)) {
+        await ctx.db.patch(n._id, {
+          type: "friend_request_declined",
+          body: `Freundschaftsanfrage von ${declineSender?.name ?? "jemandem"} abgelehnt`,
+          isRead: true,
+        });
+      }
+    }
     return null;
   },
 });

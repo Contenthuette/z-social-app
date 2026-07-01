@@ -27,9 +27,11 @@ import {
   Play,
   MoreHorizontal,
   ShieldBan,
+  Share2,
 } from "lucide-react-native";
 import { VideoGridThumbnail } from "@/components/VideoGridThumbnail";
-import { GroupAdminLinks, LocationBadge } from "@/components/ProfileBadges";
+import { ZAdminBadge, GroupAdminLinks, LocationBadge } from "@/components/ProfileBadges";
+import { ShareSheet } from "@/components/ShareSheet";
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface UserPostItem { _id: string; type: string; thumbnailUrl?: string; mediaUrl?: string; cropOffsetX?: number; cropOffsetY?: number; cropZoom?: number }
@@ -46,6 +48,7 @@ export default function UserProfileScreen() {
   const [friendLoading, setFriendLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const userId = id as Id<"users"> | undefined;
 
@@ -226,6 +229,14 @@ export default function UserProfileScreen() {
           <View style={styles.menuSheet}>
             <TouchableOpacity
               style={styles.menuItem}
+              onPress={() => { setMenuOpen(false); setShareOpen(true); }}
+              activeOpacity={0.6}
+            >
+              <Share2 size={20} color="#111" />
+              <Text style={styles.menuItemText}>Profil teilen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
               onPress={handleBlock}
               activeOpacity={0.6}
             >
@@ -242,6 +253,14 @@ export default function UserProfileScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {userId && (
+        <ShareSheet
+          visible={shareOpen}
+          profileUserId={userId}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -285,6 +304,7 @@ export default function UserProfileScreen() {
         {/* User Info */}
         <View style={styles.infoSection}>
           <Text style={styles.displayName}>{user.name || "Unbekannt"}</Text>
+          {user.role === "admin" && <ZAdminBadge />}
           {userGroups && userGroups.length > 0 && <GroupAdminLinks groups={userGroups} />}
           <View style={styles.locationAndMemberContainer}>
             <LocationBadge city={user.city} county={user.county} />
@@ -717,6 +737,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 8,
     borderRadius: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111",
   },
   menuItemTextDanger: {
     fontSize: 16,

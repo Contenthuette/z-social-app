@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, ActivityIndicator,
@@ -14,6 +14,7 @@ import { Image } from "expo-image";
 import { ZAdminBadge, GroupAdminLinks, LocationBadge } from "@/components/ProfileBadges";
 import { VideoGridThumbnail } from "@/components/VideoGridThumbnail";
 import { useThumbnailRepair } from "@/lib/useThumbnailRepair";
+import { ShareSheet } from "@/components/ShareSheet";
 
 interface UserPost {
   _id: string;
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
   const myPosts = useQuery(api.posts.getUserPosts, me ? { userId: me._id } : "skip");
   const userGroups = useQuery(api.users.getUserGroups, me ? { userId: me._id } : "skip");
   const myFriends = useQuery(api.friends.getMyFriends, isAuthenticated && me ? {} : "skip");
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Repair missing thumbnails in background
   useThumbnailRepair(myPosts as Array<{ _id: string; type: "photo" | "video"; mediaUrl?: string; thumbnailUrl?: string }> | undefined);
@@ -109,7 +111,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.editBtn} onPress={() => router.navigate("/(main)/edit-profile")} activeOpacity={0.7}>
               <Text style={styles.editBtnText}>Profil bearbeiten</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.shareBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.shareBtn} activeOpacity={0.7} onPress={() => setShareOpen(true)}>
               <SymbolView name="square.and.arrow.up" size={16} tintColor={colors.black} />
             </TouchableOpacity>
           </View>
@@ -199,6 +201,11 @@ export default function ProfileScreen() {
           </View>
         )}
       </ScrollView>
+      <ShareSheet
+        visible={shareOpen}
+        profileUserId={me?._id ?? null}
+        onClose={() => setShareOpen(false)}
+      />
     </SafeAreaView>
   );
 }

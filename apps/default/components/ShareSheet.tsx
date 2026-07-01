@@ -21,7 +21,9 @@ import * as Haptics from "expo-haptics";
 
 interface ShareSheetProps {
   visible: boolean;
-  postId: Id<"posts"> | null;
+  postId?: Id<"posts"> | null;
+  /** When set, the sheet shares a user profile instead of a post (DM only). */
+  profileUserId?: Id<"users"> | null;
   onClose: () => void;
 }
 
@@ -42,17 +44,19 @@ const SECTION_LABELS: Record<string, string> = {
   other: "Weitere",
 };
 
-export function ShareSheet({ visible, postId, onClose }: ShareSheetProps) {
+export function ShareSheet({ visible, postId, profileUserId, onClose }: ShareSheetProps) {
   const [search, setSearch] = useState("");
   const [sentTo, setSentTo] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState<string | null>(null);
   const slideAnim = useRef(new RNAnimated.Value(0)).current;
+  const isProfileShare = !!profileUserId;
 
   const targets = useQuery(
     api.sharing.getShareTargets,
     visible ? { search: search.length >= 2 ? search : undefined } : "skip",
   );
   const sharePost = useMutation(api.sharing.sharePost);
+  const shareProfile = useMutation(api.sharing.shareProfile);
 
   useEffect(() => {
     if (visible) {
@@ -71,14 +75,23 @@ export function ShareSheet({ visible, postId, onClose }: ShareSheetProps) {
 
   const handleShare = useCallback(
     async (target: ShareTarget) => {
-      if (!postId || sentTo.has(target.id)) return;
+      if (sentTo.has(target.id)) return;
+      if (!postId && !profileUserId) return;
       setSending(target.id);
       try {
-        await sharePost({
-          postId,
-          targetId: target.id,
-          targetType: target.type,
-        });
+        if (profileUserId) {
+          await shareProfile({
+            profileUserId,
+            targetId: target.id,
+            targetType: target.type,
+          });
+        } else if (postId) {
+          await sharePost({
+            postId,
+            targetId: target.id,
+            targetType: target.type,
+          });
+        }
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
@@ -89,7 +102,7 @@ export function ShareSheet({ visible, postId, onClose }: ShareSheetProps) {
         setSending(null);
       }
     },
-    [postId, sentTo, sharePost],
+    [postId, profileUserId, sentTo, sharePost, shareProfile],
   );
 
   /* ── Sectioned data ──────────────────────────────────────── */
@@ -99,8 +112,10 @@ export function ShareSheet({ visible, postId, onClose }: ShareSheetProps) {
 
   const listData: ListItem[] = [];
   if (targets) {
+    // Profile sharing is DM-only → hide group targets.
+    const visibleTargets = targets.filter((t) => !isProfileShare || t.type === "user");
     let lastSection = "";
-    for (const t of targets) {
+    for (const t of visibleTargets) {
       if (t.section !== lastSection) {
         listData.push({ kind: "header", section: t.section });
         lastSection = t.section;

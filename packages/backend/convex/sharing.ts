@@ -327,3 +327,73 @@ export const sharePost = authMutation({
     return null;
   },
 });
+
+/* ── shareProfile ─────────────────────────────────────────────── */
+export const shareProfile = authMutation({
+  args: {
+    profileUserId: v.id("users"),
+    targetId: v.string(),
+    targetType: v.union(v.literal("user"), v.literal("group")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await rateLimiter.limit(ctx, "sharePost", { key: ctx.user._id });
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) throw new Error("User not found");
+
+    const profile = await ctx.db.get(args.profileUserId);
+    if (!profile) throw new Error("Profile not found");
+
+    const me = await ctx.db.get(myUserId);
+    const myName = me?.name ?? "Jemand";
+
+    let conversationId: Id<"conversations">;
+
+    if (args.targetType === "user") {
+      const targetUserId = args.targetId as Id<"users">;
+      const conversationKey = getDirectConversationKey(myUserId, targetUserId);
+      const existing = await ctx.db
+        .query("conversations")
+        .withIndex("by_conversationKey", (q) => q.eq("conversationKey", conversationKey))
+        .unique();
+      if (existing) {
+        conversationId = existing._id;
+      } else {
+        conversationId = await ctx.db.insert("conversations", {
+          type: "direct",
+          participantIds: [myUserId, targetUserId],
+          conversationKey,
+          createdAt: Date.now(),
+        });
+      }
+    } else {
+      const groupId = args.targetId as Id<"groups">;
+      const conv = await ctx.db
+        .query("conversations")
+        .withIndex("by_groupId", (q) => q.eq("groupId", groupId))
+        .unique();
+      if (conv) {
+        conversationId = conv._id;
+      } else {
+        conversationId = await ctx.db.insert("conversations", {
+          type: "group",
+          groupId,
+          participantIds: [myUserId],
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    await ctx.db.insert("messages", {
+      conversationId,
+      senderId: myUserId,
+      type: "profile_share",
+      text: `👤 ${myName} hat ein Profil geteilt: ${profile.name}`,
+      sharedProfileId: args.profileUserId,
+      createdAt: Date.now(),
+    });
+    await touchConversationActivity(ctx, conversationId, Date.now());
+
+    return null;
+  },
+});

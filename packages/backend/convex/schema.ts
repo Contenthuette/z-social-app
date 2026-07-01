@@ -117,12 +117,13 @@ export default defineSchema({
   messages: defineTable({
     conversationId: v.id("conversations"),
     senderId: v.id("users"),
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("voice"), v.literal("post_share")),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("voice"), v.literal("post_share"), v.literal("profile_share")),
     text: v.optional(v.string()),
     mediaStorageId: v.optional(v.id("_storage")),
     mediaUrl: v.optional(v.string()),
     mediaDuration: v.optional(v.number()),
     sharedPostId: v.optional(v.id("posts")),
+    sharedProfileId: v.optional(v.id("users")),
     createdAt: v.number(),
   })
     .index("by_conversationId", ["conversationId"])
@@ -363,7 +364,9 @@ export default defineSchema({
       v.literal("event_canceled"),
       v.literal("group_deleted"),
       v.literal("event_deleted"),
-      v.literal("post_removed")
+      v.literal("post_removed"),
+      v.literal("friend_request_accepted"),
+      v.literal("friend_request_declined")
     ),
     title: v.string(),
     body: v.string(),

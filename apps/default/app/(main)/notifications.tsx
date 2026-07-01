@@ -29,6 +29,8 @@ const ICON_MAP: Record<string, string> = {
   post_share: "square.and.arrow.up",
   friend_request: "person.badge.plus",
   friend_accepted: "checkmark.circle.fill",
+  friend_request_accepted: "checkmark.circle.fill",
+  friend_request_declined: "xmark.circle.fill",
 };
 
 export default function NotificationsScreen() {

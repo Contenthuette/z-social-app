@@ -51,12 +51,14 @@ const messageReturnValidator = v.object({
     v.literal("video"),
     v.literal("voice"),
     v.literal("post_share"),
+    v.literal("profile_share"),
   ),
   text: v.optional(v.string()),
   mediaUrl: v.optional(v.string()),
   mediaDuration: v.optional(v.number()),
   sharedPostId: v.optional(v.id("posts")),
   sharedPostPreview: sharedPostPreviewValidator,
+  sharedProfileId: v.optional(v.id("users")),
   isMe: v.boolean(),
   createdAt: v.number(),
 });
@@ -177,6 +179,7 @@ async function enrichMessagesOptimized(
       mediaDuration: message.mediaDuration,
       sharedPostId: message.sharedPostId,
       sharedPostPreview: previewMap.get(message._id),
+      sharedProfileId: message.sharedProfileId,
       isMe: message.senderId === myUserId,
       createdAt: message.createdAt,
     };
