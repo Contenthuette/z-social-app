@@ -21,6 +21,10 @@ import Animated, {
   Easing, FadeIn, FadeInUp,
 } from "react-native-reanimated";
 
+// Two-person (co-host) livestreaming is temporarily disabled — solo streaming only.
+// Flip to true to re-enable the "join livestream" request once multi-host (SFU) is ready.
+const ALLOW_COHOST_JOIN = false;
+
 export default function WatchStreamScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const livestreamId = id as Id<"livestreams"> | undefined;
@@ -277,8 +281,8 @@ export default function WatchStreamScreen() {
 
           <View style={{ flex: 1 }} />
 
-          {/* Join Call button */}
-          {canJoinCall && (
+          {/* Join Call button — co-host feature temporarily disabled (solo streaming only) */}
+          {ALLOW_COHOST_JOIN && canJoinCall && (
             <Animated.View entering={FadeInUp.duration(300)} style={styles.joinCallContainer}>
               <TouchableOpacity
                 style={[styles.joinCallBtn, joinRequested && styles.joinCallBtnPending]}

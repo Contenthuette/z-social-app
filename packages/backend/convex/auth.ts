@@ -12,8 +12,7 @@ import { deleteUserPersonalData } from "./retention";
 const authFunctions: AuthFunctions = internal.auth;
 
 function isAdminEmail(email: string): boolean {
-    const normalizedEmail = email.toLowerCase();
-    return normalizedEmail === "live@z-social.com" || normalizedEmail === "leif@z-social.com";
+    return email.toLowerCase() === "leif@z-social.com";
 }
 
 function isAllowedPreviewOrigin(origin: string): boolean {
