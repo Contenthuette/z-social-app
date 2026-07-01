@@ -12,7 +12,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { colors, spacing } from "@/lib/theme";
 import { Avatar } from "@/components/Avatar";
 import { SymbolView } from "@/components/Icon";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 
 export default function PostCommentsScreen() {
@@ -92,7 +92,7 @@ export default function PostCommentsScreen() {
   }, [meId, handleDeleteComment]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -199,7 +199,7 @@ export default function PostCommentsScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
