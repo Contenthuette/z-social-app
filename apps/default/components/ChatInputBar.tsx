@@ -91,6 +91,12 @@ export interface MediaPickResult {
   mimeType: string;
 }
 
+export interface ReplyTarget {
+  id: string;
+  senderName: string;
+  preview: string;
+}
+
 interface ChatInputBarProps {
   onSend: (text: string) => void;
   onSendVoice?: (uri: string, durationMs: number) => void;
@@ -98,6 +104,8 @@ interface ChatInputBarProps {
   onPlusPress?: () => void;
   placeholder?: string;
   bottomInset?: number;
+  replyingTo?: ReplyTarget | null;
+  onCancelReply?: () => void;
 }
 
 export function ChatInputBar({
@@ -107,6 +115,8 @@ export function ChatInputBar({
   onPlusPress,
   placeholder = "Nachricht...",
   bottomInset = 0,
+  replyingTo,
+  onCancelReply,
 }: ChatInputBarProps) {
   const [text, setText] = useState("");
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
@@ -212,6 +222,22 @@ export function ChatInputBar({
 
   return (
     <View style={[styles.wrapper, bottomInset > 0 && { paddingBottom: bottomInset }]}>
+      {replyingTo && (
+        <View style={styles.replyBar}>
+          <View style={styles.replyAccent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.replyTitle} numberOfLines={1}>
+              Antwort an {replyingTo.senderName}
+            </Text>
+            <Text style={styles.replyPreview} numberOfLines={1}>
+              {replyingTo.preview}
+            </Text>
+          </View>
+          <Pressable onPress={onCancelReply} hitSlop={8} style={styles.replyClose}>
+            <SymbolView name="xmark" size={13} tintColor="#8E8E93" />
+          </Pressable>
+        </View>
+      )}
       {showVoiceRecorder ? (
         <VoiceRecorderErrorBoundary onReset={handleVoiceCancel}>
           <VoiceRecorder
@@ -361,6 +387,32 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
     backgroundColor: "#FFFFFF",
+  },
+  replyBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    gap: 10,
+  },
+  replyAccent: {
+    width: 3,
+    alignSelf: "stretch",
+    borderRadius: 2,
+    backgroundColor: "#000000",
+  },
+  replyTitle: { fontSize: 13, fontWeight: "700", color: "#000000" },
+  replyPreview: { fontSize: 13, color: "#8E8E93", marginTop: 1 },
+  replyClose: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   bar: {
     flexDirection: "row",

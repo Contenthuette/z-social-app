@@ -128,6 +128,10 @@ export default defineSchema({
     mediaDuration: v.optional(v.number()),
     sharedPostId: v.optional(v.id("posts")),
     sharedProfileId: v.optional(v.id("users")),
+    reactions: v.optional(v.array(v.object({ userId: v.id("users"), emoji: v.string() }))),
+    replyToId: v.optional(v.id("messages")),
+    replyToText: v.optional(v.string()),
+    replyToSenderName: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_conversationId", ["conversationId"])

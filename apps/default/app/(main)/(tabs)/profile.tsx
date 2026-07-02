@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
   Dimensions, ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +15,7 @@ import { ZAdminBadge, GroupAdminLinks, LocationBadge } from "@/components/Profil
 import { VideoGridThumbnail } from "@/components/VideoGridThumbnail";
 import { useThumbnailRepair } from "@/lib/useThumbnailRepair";
 import { ShareSheet } from "@/components/ShareSheet";
+import { ImageViewerModal } from "@/components/ImageViewerModal";
 
 interface UserPost {
   _id: string;
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
   const userGroups = useQuery(api.users.getUserGroups, me ? { userId: me._id } : "skip");
   const myFriends = useQuery(api.friends.getMyFriends, isAuthenticated && me ? {} : "skip");
   const [shareOpen, setShareOpen] = useState(false);
+  const [avatarViewer, setAvatarViewer] = useState(false);
 
   // Repair missing thumbnails in background
   useThumbnailRepair(myPosts as Array<{ _id: string; type: "photo" | "video"; mediaUrl?: string; thumbnailUrl?: string }> | undefined);
@@ -71,9 +73,13 @@ export default function ProfileScreen() {
         {/* Profile header */}
         <View style={styles.profileSection}>
           <View style={styles.avatarRow}>
-            <View style={styles.avatarBorder}>
+            <Pressable
+              style={styles.avatarBorder}
+              onPress={() => { if (me.avatarUrl) setAvatarViewer(true); }}
+              disabled={!me.avatarUrl}
+            >
               <Avatar uri={me.avatarUrl} name={me.name} size={84} />
-            </View>
+            </Pressable>
             <View style={styles.statsRow}>
               <View style={styles.stat}>
                 <Text style={styles.statValue}>{myPosts?.length ?? 0}</Text>
@@ -205,6 +211,12 @@ export default function ProfileScreen() {
         visible={shareOpen}
         profileUserId={me?._id ?? null}
         onClose={() => setShareOpen(false)}
+      />
+
+      <ImageViewerModal
+        uri={me?.avatarUrl}
+        visible={avatarViewer}
+        onClose={() => setAvatarViewer(false)}
       />
     </SafeAreaView>
   );

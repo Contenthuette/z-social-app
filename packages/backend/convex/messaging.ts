@@ -29,6 +29,36 @@ async function getMyUserId(ctx: { db: QueryCtx["db"]; user: { _id: string } }): 
   return user?._id ?? null;
 }
 
+function previewForMessage(message: Doc<"messages">): string {
+  switch (message.type) {
+    case "text": return (message.text ?? "").slice(0, 120);
+    case "image": return "📷 Foto";
+    case "video": return "🎥 Video";
+    case "voice": return "🎙 Sprachmemo";
+    case "post_share": return "Beitrag";
+    case "profile_share": return "Profil";
+    default: return "Nachricht";
+  }
+}
+
+// Resolve reply metadata (quoted text + sender name) from a replyToId,
+// verifying the target message belongs to the same conversation.
+async function resolveReplyTo(
+  ctx: { db: QueryCtx["db"] },
+  replyToId: Id<"messages"> | undefined,
+  conversationId: Id<"conversations">,
+): Promise<{ replyToId?: Id<"messages">; replyToText?: string; replyToSenderName?: string }> {
+  if (!replyToId) return {};
+  const target = await ctx.db.get(replyToId);
+  if (!target || target.conversationId !== conversationId) return {};
+  const sender = await ctx.db.get(target.senderId);
+  return {
+    replyToId,
+    replyToText: previewForMessage(target),
+    replyToSenderName: sender?.name ?? "Unbekannt",
+  };
+}
+
 const sharedPostPreviewValidator = v.optional(
   v.object({
     thumbnailUrl: v.optional(v.string()),
@@ -59,6 +89,10 @@ const messageReturnValidator = v.object({
   sharedPostId: v.optional(v.id("posts")),
   sharedPostPreview: sharedPostPreviewValidator,
   sharedProfileId: v.optional(v.id("users")),
+  reactions: v.optional(v.array(v.object({ userId: v.id("users"), emoji: v.string() }))),
+  replyToId: v.optional(v.id("messages")),
+  replyToText: v.optional(v.string()),
+  replyToSenderName: v.optional(v.string()),
   isMe: v.boolean(),
   createdAt: v.number(),
 });
@@ -180,6 +214,10 @@ async function enrichMessagesOptimized(
       sharedPostId: message.sharedPostId,
       sharedPostPreview: previewMap.get(message._id),
       sharedProfileId: message.sharedProfileId,
+      reactions: message.reactions,
+      replyToId: message.replyToId,
+      replyToText: message.replyToText,
+      replyToSenderName: message.replyToSenderName,
       isMe: message.senderId === myUserId,
       createdAt: message.createdAt,
     };
@@ -502,6 +540,7 @@ export const sendMessage = authMutation({
     mediaStorageId: v.optional(v.id("_storage")),
     mediaDuration: v.optional(v.number()),
     sharedPostId: v.optional(v.id("posts")),
+    replyToId: v.optional(v.id("messages")),
   },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
@@ -519,6 +558,8 @@ export const sendMessage = authMutation({
       }
     }
 
+    const reply = await resolveReplyTo(ctx, args.replyToId, args.conversationId);
+
     const createdAt = Date.now();
     const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
@@ -528,9 +569,32 @@ export const sendMessage = authMutation({
       mediaStorageId: args.mediaStorageId,
       mediaDuration: args.mediaDuration,
       sharedPostId: args.sharedPostId,
+      ...reply,
       createdAt,
     });
     await touchConversationActivity(ctx, args.conversationId, createdAt);
+
+    // Push the recipient so they're notified even with the app closed
+    if (conversation?.type === "direct") {
+      const otherUserId = conversation.participantIds?.find((id: Id<"users">) => id !== myUserId);
+      if (otherUserId) {
+        const me = await ctx.db.get(myUserId);
+        const preview =
+          args.type === "text" ? (args.text ?? "")
+          : args.type === "image" ? "📷 Foto"
+          : args.type === "voice" ? "🎙 Sprachmemo"
+          : args.type === "video" ? "🎥 Video"
+          : args.type === "post_share" ? "Hat einen Beitrag geteilt"
+          : "Neue Nachricht";
+        await ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
+          userId: otherUserId,
+          title: me?.name ?? "Neue Nachricht",
+          body: preview.slice(0, 140),
+          data: { type: "message", conversationId: String(args.conversationId) },
+          category: "directMessages",
+        });
+      }
+    }
     return messageId;
   },
 });
@@ -582,6 +646,7 @@ export const sendGroupMessage = authMutation({
     ),
     mediaStorageId: v.optional(v.id("_storage")),
     mediaDuration: v.optional(v.number()),
+    replyToId: v.optional(v.id("messages")),
   },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
@@ -603,6 +668,8 @@ export const sendGroupMessage = authMutation({
     }
     if (!conversation) throw new Error("Conversation not found");
 
+    const reply = await resolveReplyTo(ctx, args.replyToId, conversation._id);
+
     const createdAt = Date.now();
     const messageId = await ctx.db.insert("messages", {
       conversationId: conversation._id,
@@ -611,10 +678,90 @@ export const sendGroupMessage = authMutation({
       text: args.text,
       mediaStorageId: args.mediaStorageId,
       mediaDuration: args.mediaDuration,
+      ...reply,
       createdAt,
     });
     await touchConversationActivity(ctx, conversation._id, createdAt);
+
+    // Push the other active group members (app closed)
+    const [me, group] = await Promise.all([
+      ctx.db.get(myUserId),
+      ctx.db.get(args.groupId),
+    ]);
+    const members = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_groupId", (q) => q.eq("groupId", args.groupId))
+      .take(200);
+    const preview =
+      args.type === "text" ? (args.text ?? "")
+      : args.type === "image" ? "📷 Foto"
+      : args.type === "voice" ? "🎙 Sprachmemo"
+      : args.type === "video" ? "🎥 Video"
+      : "Neue Nachricht";
+    const senderName = me?.name ?? "Jemand";
+    const groupName = group?.name ?? "Gruppe";
+    await Promise.all(
+      members
+        .filter((m) => m.status === "active" && m.userId !== myUserId)
+        .map((m) =>
+          ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
+            userId: m.userId,
+            title: groupName,
+            body: `${senderName}: ${preview}`.slice(0, 140),
+            data: { type: "group_message", groupId: String(args.groupId) },
+            category: "groupMessages",
+          }),
+        ),
+    );
     return messageId;
+  },
+});
+
+// Toggle an emoji reaction on a message (WhatsApp-style, one emoji per user)
+export const toggleReaction = authMutation({
+  args: {
+    messageId: v.id("messages"),
+    emoji: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) throw new Error("User not found");
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) throw new Error("Message not found");
+
+    // Verify the user is a participant of the conversation
+    const conversation = await ctx.db.get(message.conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    if (conversation.type === "direct") {
+      if (!conversation.participantIds?.includes(myUserId)) {
+        throw new Error("Not allowed");
+      }
+    } else if (conversation.groupId) {
+      const membership = await ctx.db
+        .query("groupMembers")
+        .withIndex("by_groupId_and_userId", (q) =>
+          q.eq("groupId", conversation.groupId!).eq("userId", myUserId),
+        )
+        .unique();
+      if (!membership || membership.status !== "active") {
+        throw new Error("Not allowed");
+      }
+    }
+
+    const reactions = message.reactions ?? [];
+    const existing = reactions.find((r) => r.userId === myUserId);
+    let next: Array<{ userId: Id<"users">; emoji: string }>;
+    if (existing && existing.emoji === args.emoji) {
+      // Same emoji tapped again → remove reaction
+      next = reactions.filter((r) => r.userId !== myUserId);
+    } else {
+      // Replace this user's reaction (or add new)
+      next = [...reactions.filter((r) => r.userId !== myUserId), { userId: myUserId, emoji: args.emoji }];
+    }
+    await ctx.db.patch(args.messageId, { reactions: next.length > 0 ? next : undefined });
+    return null;
   },
 });
 
@@ -663,6 +810,7 @@ export const sendDirectMessage = authMutation({
     ),
     mediaStorageId: v.optional(v.id("_storage")),
     mediaDuration: v.optional(v.number()),
+    replyToId: v.optional(v.id("messages")),
   },
   returns: v.id("messages"),
   handler: async (ctx, args) => {
@@ -673,12 +821,15 @@ export const sendDirectMessage = authMutation({
 
     // Block check for DMs
     const conversation = await ctx.db.get(args.conversationId);
+    let otherUserId: Id<"users"> | undefined;
     if (conversation?.type === "direct") {
-      const otherUserId = conversation.participantIds?.find((id: Id<"users">) => id !== myUserId);
+      otherUserId = conversation.participantIds?.find((id: Id<"users">) => id !== myUserId);
       if (otherUserId && await isBlockedBetween(ctx, myUserId, otherUserId)) {
         throw new Error("Nachricht kann nicht gesendet werden");
       }
     }
+
+    const reply = await resolveReplyTo(ctx, args.replyToId, args.conversationId);
 
     const createdAt = Date.now();
     const messageId = await ctx.db.insert("messages", {
@@ -688,9 +839,28 @@ export const sendDirectMessage = authMutation({
       text: args.text,
       mediaStorageId: args.mediaStorageId,
       mediaDuration: args.mediaDuration,
+      ...reply,
       createdAt,
     });
     await touchConversationActivity(ctx, args.conversationId, createdAt);
+
+    // Push the recipient so they're notified even with the app closed
+    if (otherUserId) {
+      const me = await ctx.db.get(myUserId);
+      const preview =
+        args.type === "text" ? (args.text ?? "")
+        : args.type === "image" ? "📷 Foto"
+        : args.type === "voice" ? "🎙 Sprachmemo"
+        : args.type === "video" ? "🎥 Video"
+        : "Neue Nachricht";
+      await ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
+        userId: otherUserId,
+        title: me?.name ?? "Neue Nachricht",
+        body: preview.slice(0, 140),
+        data: { type: "message", conversationId: String(args.conversationId) },
+        category: "directMessages",
+      });
+    }
     return messageId;
   },
 });

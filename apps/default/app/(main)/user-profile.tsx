@@ -32,6 +32,7 @@ import {
 import { VideoGridThumbnail } from "@/components/VideoGridThumbnail";
 import { ZAdminBadge, GroupAdminLinks, LocationBadge } from "@/components/ProfileBadges";
 import { ShareSheet } from "@/components/ShareSheet";
+import { ImageViewerModal } from "@/components/ImageViewerModal";
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface UserPostItem { _id: string; type: string; thumbnailUrl?: string; mediaUrl?: string; cropOffsetX?: number; cropOffsetY?: number; cropZoom?: number }
@@ -49,6 +50,7 @@ export default function UserProfileScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [avatarViewer, setAvatarViewer] = useState(false);
 
   const userId = id as Id<"users"> | undefined;
 
@@ -262,6 +264,12 @@ export default function UserProfileScreen() {
         />
       )}
 
+      <ImageViewerModal
+        uri={user.avatarUrl}
+        visible={avatarViewer}
+        onClose={() => setAvatarViewer(false)}
+      />
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -281,7 +289,11 @@ export default function UserProfileScreen() {
           ) : (
             <View style={styles.bannerPlaceholder} />
           )}
-          <View style={styles.avatarWrapper}>
+          <Pressable
+            style={styles.avatarWrapper}
+            onPress={() => { if (user.avatarUrl) setAvatarViewer(true); }}
+            disabled={!user.avatarUrl}
+          >
             {user.avatarUrl ? (
               <Image
                 source={{ uri: user.avatarUrl }}
@@ -298,7 +310,7 @@ export default function UserProfileScreen() {
                 </Text>
               </View>
             )}
-          </View>
+          </Pressable>
         </View>
 
         {/* User Info */}

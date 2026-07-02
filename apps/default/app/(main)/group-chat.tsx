@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, FlatList,
+  View, Text, StyleSheet, FlatList, Pressable,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, router } from "expo-router";
 import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -15,7 +16,8 @@ import { safeBack } from "@/lib/navigation";
 import { Avatar } from "@/components/Avatar";
 import { SymbolView } from "@/components/Icon";
 import { ChatInputBar } from "@/components/ChatInputBar";
-import type { MediaPickResult } from "@/components/ChatInputBar";
+import type { MediaPickResult, ReplyTarget } from "@/components/ChatInputBar";
+import { MessageActionSheet, ReactionBadges, QuotedReply } from "@/components/MessageActions";
 import { SharedPostBubble } from "@/components/SharedPostBubble";
 import { VoiceMessageBubble } from "@/components/VoiceMessageBubble";
 import { MediaMessageBubble } from "@/components/MediaMessageBubble";
@@ -47,12 +49,45 @@ export default function GroupChatScreen() {
   );
   const sendMessage = useMutation(api.messaging.sendGroupMessage);
   const generateUploadUrl = useMutation(api.messaging.generateUploadUrl);
+  const toggleReaction = useMutation(api.messaging.toggleReaction);
+  const deleteMessage = useMutation(api.messaging.deleteMessage);
   const me = useQuery(api.users.me, isAuthenticated ? undefined : "skip");
   const group = useQuery(api.groups.getById, isAuthenticated && id ? { groupId: id as Id<"groups"> } : "skip");
 
+  type Msg = NonNullable<typeof messages>[number];
+  const [actionTarget, setActionTarget] = useState<Msg | null>(null);
+  const [replyingTo, setReplyingTo] = useState<ReplyTarget | null>(null);
+
+  const previewFor = (m: Msg): string =>
+    m.type === "text" ? (m.text ?? "")
+    : m.type === "image" ? "📷 Foto"
+    : m.type === "video" ? "🎥 Video"
+    : m.type === "voice" ? "🎙 Sprachmemo"
+    : m.type === "post_share" ? "Beitrag"
+    : "Nachricht";
+
+  const handleLongPressMessage = useCallback((item: Msg) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActionTarget(item);
+  }, []);
+
+  const handleReact = useCallback((messageId: Id<"messages">, emoji: string) => {
+    toggleReaction({ messageId, emoji }).catch((e) => console.error("react failed", e));
+  }, [toggleReaction]);
+
+  const handleReply = useCallback((m: Msg) => {
+    setReplyingTo({ id: m._id, senderName: m.isMe ? "Dir" : (m.senderName ?? "Unbekannt"), preview: previewFor(m) });
+  }, []);
+
+  const handleDeleteMessage = useCallback((messageId: Id<"messages">) => {
+    deleteMessage({ messageId }).catch((e) => console.error("delete failed", e));
+  }, [deleteMessage]);
+
   const handleSend = async (msg: string) => {
     if (!id) return;
-    await sendMessage({ groupId: id as Id<"groups">, text: msg, type: "text" });
+    const replyToId = replyingTo?.id as Id<"messages"> | undefined;
+    setReplyingTo(null);
+    await sendMessage({ groupId: id as Id<"groups">, text: msg, type: "text", replyToId });
   };
 
   const handleSendVoice = useCallback(async (uri: string, durationMs: number) => {
@@ -108,74 +143,80 @@ export default function GroupChatScreen() {
     }
   }, [id, generateUploadUrl, sendMessage]);
 
-  const renderMessage = ({ item }: { item: NonNullable<typeof messages>[number] }) => {
+  const renderMessage = ({ item }: { item: Msg }) => {
     const isMine = item.senderId === me?._id;
     const timeStr = new Date(item.createdAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 
-    // Shared post bubble
+    const avatar = !isMine && (
+      <Pressable
+        onPress={() => router.navigate({ pathname: "/(main)/user-profile", params: { id: item.senderId } })}
+        hitSlop={6}
+      >
+        <Avatar uri={item.senderAvatarUrl} name={item.senderName} size={30} />
+      </Pressable>
+    );
+
+    const quoted = item.replyToSenderName ? (
+      <QuotedReply senderName={item.replyToSenderName} text={item.replyToText} isMine={isMine} />
+    ) : null;
+
+    let inner: React.ReactNode;
     if (item.type === "post_share" && item.sharedPostId) {
-      return (
-        <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
-          {!isMine && <Avatar uri={item.senderAvatarUrl} name={item.senderName} size={30} />}
-          <View>
-            {!isMine && <Text style={styles.senderName}>{item.senderName}</Text>}
-            <SharedPostBubble
-              postId={item.sharedPostId}
-              preview={item.sharedPostPreview ?? undefined}
-              isMine={isMine}
-              timestamp={timeStr}
-            />
-          </View>
-        </View>
+      inner = (
+        <SharedPostBubble
+          postId={item.sharedPostId}
+          preview={item.sharedPostPreview ?? undefined}
+          isMine={isMine}
+          timestamp={timeStr}
+        />
       );
-    }
-
-    // Voice message bubble
-    if (item.type === "voice") {
-      return (
-        <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
-          {!isMine && <Avatar uri={item.senderAvatarUrl} name={item.senderName} size={30} />}
-          <View>
-            {!isMine && <Text style={styles.senderName}>{item.senderName}</Text>}
-            <VoiceMessageBubble
-              audioUrl={item.mediaUrl ?? ""}
-              durationMs={item.mediaDuration}
-              isMine={isMine}
-              timestamp={timeStr}
-            />
-          </View>
-        </View>
+    } else if (item.type === "voice") {
+      inner = (
+        <VoiceMessageBubble
+          audioUrl={item.mediaUrl ?? ""}
+          durationMs={item.mediaDuration}
+          isMine={isMine}
+          timestamp={timeStr}
+        />
       );
-    }
-
-    // Image/Video message bubble
-    if ((item.type === "image" || item.type === "video") && item.mediaUrl) {
-      return (
-        <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
-          {!isMine && <Avatar uri={item.senderAvatarUrl} name={item.senderName} size={30} />}
-          <View>
-            {!isMine && <Text style={styles.senderName}>{item.senderName}</Text>}
-            <MediaMessageBubble
-              mediaUrl={item.mediaUrl}
-              type={item.type}
-              isMine={isMine}
-              timestamp={timeStr}
-            />
-          </View>
-        </View>
+    } else if ((item.type === "image" || item.type === "video") && item.mediaUrl) {
+      inner = (
+        <MediaMessageBubble
+          mediaUrl={item.mediaUrl}
+          type={item.type}
+          isMine={isMine}
+          timestamp={timeStr}
+        />
       );
-    }
-
-    return (
-      <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
-        {!isMine && <Avatar uri={item.senderAvatarUrl} name={item.senderName} size={30} />}
+    } else {
+      inner = (
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
-          {!isMine && <Text style={styles.senderName}>{item.senderName}</Text>}
+          {quoted}
           <Text style={[styles.msgText, isMine && styles.msgTextMine]}>{item.text}</Text>
           <Text style={[styles.timestamp, isMine && styles.timestampMine]}>
             {timeStr}
           </Text>
         </View>
+      );
+    }
+
+    return (
+      <View>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onLongPress={() => handleLongPressMessage(item)}
+          delayLongPress={350}
+        >
+          <View style={[styles.msgRow, isMine && styles.msgRowMine]}>
+            {avatar}
+            <View>
+              {!isMine && <Text style={styles.senderName}>{item.senderName}</Text>}
+              {item.type !== "text" && quoted}
+              {inner}
+            </View>
+          </View>
+        </TouchableOpacity>
+        <ReactionBadges reactions={item.reactions} isMine={isMine} onPress={() => handleLongPressMessage(item)} />
       </View>
     );
   };
@@ -221,8 +262,24 @@ export default function GroupChatScreen() {
           }
         />
 
-        <ChatInputBar onSend={handleSend} onSendVoice={handleSendVoice} onSendMedia={handleSendMedia} bottomInset={insets.bottom} />
+        <ChatInputBar
+          onSend={handleSend}
+          onSendVoice={handleSendVoice}
+          onSendMedia={handleSendMedia}
+          bottomInset={insets.bottom}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
       </KeyboardAvoidingView>
+
+      <MessageActionSheet
+        visible={!!actionTarget}
+        onClose={() => setActionTarget(null)}
+        onReact={(emoji) => { if (actionTarget) handleReact(actionTarget._id, emoji); }}
+        onReply={() => { if (actionTarget) handleReply(actionTarget); }}
+        onDelete={() => { if (actionTarget) handleDeleteMessage(actionTarget._id); }}
+        canDelete={actionTarget?.senderId === me?._id}
+      />
     </SafeAreaView>
   );
 }
