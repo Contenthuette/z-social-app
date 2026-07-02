@@ -19,6 +19,7 @@ import { SymbolView } from "@/components/Icon";
 import { router } from "expo-router";
 import { useCallContext } from "@/lib/call-context";
 import { useSound } from "@/lib/sounds";
+import { startRingtone, stopRingtone } from "@/lib/callRingtone";
 import { setSpeakerOn } from "@/lib/audioRouting";
 import { BlurView } from "expo-blur";
 
@@ -103,12 +104,12 @@ export function ActiveCallScreen({ callId }: ActiveCallScreenProps) {
 
   useEffect(() => {
     if (!isInitiator || phase !== "ringing") {
-      stopSound("ringback");
+      stopRingtone();
       return;
     }
 
-    playSound("ringback");
-    return () => stopSound("ringback");
+    startRingtone();
+    return () => stopRingtone();
   }, [isInitiator, phase, playSound, stopSound]);
 
   // Call duration timer
@@ -121,7 +122,7 @@ export function ActiveCallScreen({ callId }: ActiveCallScreenProps) {
   // Auto-dismiss when call ends
   useEffect(() => {
     if (phase === "ended") {
-      stopSound("ringback");
+      stopRingtone();
       stopWebRTC();
       setSpeakerOn(false);
       const timeout = setTimeout(() => {
@@ -142,7 +143,7 @@ export function ActiveCallScreen({ callId }: ActiveCallScreenProps) {
   const handleHangUp = useCallback(() => {
     if (hangingUpRef.current) return;
     hangingUpRef.current = true;
-    stopSound("ringback");
+    stopRingtone();
     playSound("hangup");
     if (Platform.OS !== "web")
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -293,7 +294,7 @@ export function ActiveCallScreen({ callId }: ActiveCallScreenProps) {
                 pressed && { opacity: 0.7 },
               ]}
               onPress={() => {
-                stopSound("ringback");
+                stopRingtone();
                 stopWebRTC();
                 endCallMutation({ callId }).catch(() => {});
                 if (router.canGoBack()) router.back();

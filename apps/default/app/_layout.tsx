@@ -4,6 +4,7 @@ import React from "react";
 import { ConvexReactClient } from "convex/react";
 import { ConvexAuthProvider } from "@/lib/ConvexAuthProvider";
 import { SoundProvider } from "@/lib/sounds";
+import { InAppToast } from "@/components/InAppToast";
 
 const convexUrl =
   process.env.EXPO_PUBLIC_CONVEX_URL ?? "https://cheery-panther-475.convex.cloud";
@@ -27,6 +28,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(main)" />
         </Stack>
+        <InAppToast />
       </SoundProvider>
     </ConvexAuthProvider>
   );

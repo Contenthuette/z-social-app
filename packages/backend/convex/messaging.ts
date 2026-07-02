@@ -330,6 +330,16 @@ export const getUnreadConversationsCount = authQuery({
     const myUserId = await getMyUserId(ctx);
     if (!myUserId) return 0;
 
+    // Conversations the user deleted from their inbox — mirror listConversations,
+    // otherwise the badge counts messages the DM list never shows (phantom unread).
+    const settings = await ctx.db
+      .query("conversationSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    const deletedIds = new Set(
+      settings.filter((s) => s.isDeleted).map((s) => s.conversationId as string),
+    );
+
     // Use readStatus index to find user's conversations directly
     const readStatuses = await ctx.db
       .query("conversationReadStatus")
@@ -338,6 +348,12 @@ export const getUnreadConversationsCount = authQuery({
 
     let total = 0;
     for (const rs of readStatuses) {
+      if (deletedIds.has(rs.conversationId as string)) continue;
+      const conversation = await ctx.db.get(rs.conversationId);
+      // Only 1:1 direct chats the user is still part of (groups have their own badge)
+      if (!conversation || conversation.type !== "direct") continue;
+      if (!conversation.participantIds?.includes(myUserId)) continue;
+
       const unread = await ctx.db
         .query("messages")
         .withIndex("by_conversationId_and_createdAt", (q) =>

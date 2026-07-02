@@ -44,8 +44,11 @@ export default function GroupDetailScreen() {
   const acceptRequest = useMutation(api.groups.acceptRequest);
   const rejectRequest = useMutation(api.groups.rejectRequest);
   const deleteGroupMut = useMutation(api.groups.deleteGroup);
+  const leaveGroupMut = useMutation(api.groups.leave);
+  const kickMemberMut = useMutation(api.groups.kickMember);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   // Pulse for live badge — hooks MUST be before any early returns
   const livePulse = useSharedValue(1);
@@ -92,6 +95,50 @@ export default function GroupDetailScreen() {
   const handleJoin = async () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try { await joinGroup({ groupId: id as Id<"groups"> }); } catch { /* already member */ }
+  };
+
+  const handleLeave = () => {
+    const doLeave = async () => {
+      setLeaving(true);
+      try {
+        await leaveGroupMut({ groupId: id as Id<"groups"> });
+        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        router.back();
+      } catch {
+        if (Platform.OS !== "web") Alert.alert("Fehler", "Gruppe konnte nicht verlassen werden.");
+      } finally {
+        setLeaving(false);
+      }
+    };
+    if (Platform.OS === "web") { void doLeave(); return; }
+    Alert.alert(
+      "Gruppe verlassen",
+      "Möchtest du diese Gruppe wirklich verlassen?",
+      [
+        { text: "Abbrechen", style: "cancel" },
+        { text: "Verlassen", style: "destructive", onPress: () => { void doLeave(); } },
+      ],
+    );
+  };
+
+  const handleKick = (userId: Id<"users">, name: string) => {
+    const doKick = async () => {
+      try {
+        await kickMemberMut({ groupId: id as Id<"groups">, userId });
+        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch {
+        if (Platform.OS !== "web") Alert.alert("Fehler", "Mitglied konnte nicht entfernt werden.");
+      }
+    };
+    if (Platform.OS === "web") { void doKick(); return; }
+    Alert.alert(
+      "Mitglied entfernen",
+      `${name} aus der Gruppe entfernen?`,
+      [
+        { text: "Abbrechen", style: "cancel" },
+        { text: "Entfernen", style: "destructive", onPress: () => { void doKick(); } },
+      ],
+    );
   };
 
   const handleAccept = async (userId: Id<"users">) => {
@@ -223,6 +270,21 @@ export default function GroupDetailScreen() {
             )}
           </View>
 
+          {/* Leave group (members who aren't the creator) */}
+          {isMember && !isCreator && (
+            <TouchableOpacity
+              style={styles.leaveBtn}
+              onPress={handleLeave}
+              disabled={leaving}
+              activeOpacity={0.7}
+            >
+              <SymbolView name="rectangle.portrait.and.arrow.right" size={15} tintColor={colors.danger} />
+              <Text style={styles.leaveBtnText}>
+                {leaving ? "Wird verlassen…" : "Gruppe verlassen"}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* Live Stream Banner */}
           {activeStream && (
             <TouchableOpacity
@@ -308,7 +370,18 @@ export default function GroupDetailScreen() {
                       {m.role === "admin" ? "Admin" : "Mitglied"}
                     </Text>
                   </View>
-                  <SymbolView name="chevron.right" size={13} tintColor={colors.gray300} />
+                  {(isAdmin || isCreator) && m.userId !== me?._id && m.userId !== group.creatorId ? (
+                    <TouchableOpacity
+                      onPress={() => handleKick(m.userId, m.name)}
+                      hitSlop={10}
+                      style={styles.kickBtn}
+                      activeOpacity={0.6}
+                    >
+                      <SymbolView name="person.badge.minus" size={18} tintColor={colors.danger} />
+                    </TouchableOpacity>
+                  ) : (
+                    <SymbolView name="chevron.right" size={13} tintColor={colors.gray300} />
+                  )}
                 </TouchableOpacity>
               ))
             ) : (
@@ -507,6 +580,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   primaryBtnText: { fontSize: 15, fontWeight: "600", color: colors.white },
+  leaveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    height: 44,
+    marginTop: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(239,68,68,0.35)",
+    backgroundColor: "rgba(239,68,68,0.06)",
+  },
+  leaveBtnText: { fontSize: 15, fontWeight: "600", color: colors.danger },
+  kickBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(239,68,68,0.08)",
+  },
   pendingBtn: {
     flex: 1,
     flexDirection: "row",

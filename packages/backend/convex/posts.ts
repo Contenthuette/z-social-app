@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { authQuery, authMutation } from "./functions";
 import type { Id, Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -512,6 +513,39 @@ export const toggleLike = authMutation({
     } else {
       await ctx.db.insert("likes", { postId: args.postId, userId: myUserId, createdAt: Date.now() });
       await ctx.db.patch(args.postId, { likeCount: post.likeCount + 1 });
+
+      // Notify the post author about the new like (skip self-likes)
+      if (post.authorId !== myUserId) {
+        const liker = await ctx.db.get(myUserId);
+        const likerName = liker?.name ?? "Jemand";
+        // Avoid duplicate unread like-notifications from the same user for this post
+        const recentLikeNotif = await ctx.db
+          .query("notifications")
+          .withIndex("by_userId", (q) => q.eq("userId", post.authorId))
+          .order("desc")
+          .take(20);
+        const alreadyNotified = recentLikeNotif.some(
+          (n) => n.type === "like" && !n.isRead && String(n.referenceId) === String(args.postId) && n.senderId === myUserId,
+        );
+        if (!alreadyNotified) {
+          await ctx.db.insert("notifications", {
+            userId: post.authorId,
+            senderId: myUserId,
+            type: "like",
+            title: "Neuer Like",
+            body: `${likerName} gefällt dein Beitrag.`,
+            referenceId: args.postId,
+            isRead: false,
+            createdAt: Date.now(),
+          });
+          await ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
+            userId: post.authorId,
+            title: "Neuer Like",
+            body: `${likerName} gefällt dein Beitrag.`,
+            data: { type: "like", postId: String(args.postId) },
+          });
+        }
+      }
     }
     return null;
   },

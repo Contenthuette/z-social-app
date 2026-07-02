@@ -35,6 +35,7 @@ const notificationTypeValidator = v.union(
   v.literal("post_removed"),
   v.literal("friend_request_accepted"),
   v.literal("friend_request_declined"),
+  v.literal("group_kicked"),
 );
 
 const notificationValidator = v.object({
@@ -55,6 +56,40 @@ async function getMyUserId(ctx: AuthCtx): Promise<Id<"users"> | null> {
     .unique();
   return user?._id ?? null;
 }
+
+// Newest notification for the current user — drives the in-app toast banner.
+export const getLatest = authQuery({
+  args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("notifications"),
+      type: notificationTypeValidator,
+      title: v.string(),
+      body: v.string(),
+      isRead: v.boolean(),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) return null;
+    const latest = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .order("desc")
+      .first();
+    if (!latest) return null;
+    return {
+      _id: latest._id,
+      type: latest.type,
+      title: latest.title,
+      body: latest.body,
+      isRead: latest.isRead,
+      createdAt: latest.createdAt,
+    };
+  },
+});
 
 export const list = authQuery({
   args: { paginationOpts: paginationOptsValidator },

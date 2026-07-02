@@ -1053,6 +1053,7 @@ export const listGroups = authQuery({
       ),
       creatorName: v.string(),
       createdAt: v.number(),
+      pinnedAt: v.optional(v.number()),
     }),
   ),
   handler: async (ctx) => {
@@ -1069,9 +1070,43 @@ export const listGroups = authQuery({
           visibility: g.visibility,
           creatorName: creator?.name ?? "Unbekannt",
           createdAt: g.createdAt,
+          pinnedAt: g.pinnedAt,
         };
       }),
     );
+  },
+});
+
+/* ─── Pin / unpin group (admin) — max 3 shown atop Groups list ─── */
+export const pinGroup = authMutation({
+  args: { groupId: v.id("groups") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const group = await ctx.db.get(args.groupId);
+    if (!group) throw new Error("Gruppe nicht gefunden");
+    if (group.pinnedAt) return null;
+    const pinned = await ctx.db
+      .query("groups")
+      .withIndex("by_pinnedAt", (q) => q.gt("pinnedAt", 0))
+      .collect();
+    if (pinned.length >= 3) {
+      throw new Error("Maximal 3 Gruppen können angepinnt werden.");
+    }
+    await ctx.db.patch(args.groupId, { pinnedAt: Date.now() });
+    return null;
+  },
+});
+
+export const unpinGroup = authMutation({
+  args: { groupId: v.id("groups") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const group = await ctx.db.get(args.groupId);
+    if (!group) throw new Error("Gruppe nicht gefunden");
+    await ctx.db.patch(args.groupId, { pinnedAt: undefined });
+    return null;
   },
 });
 

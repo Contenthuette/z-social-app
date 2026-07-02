@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 import { SymbolView } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
 import { useSound } from "@/lib/sounds";
+import { startRingtone, stopRingtone } from "@/lib/callRingtone";
 
 interface IncomingCallOverlayProps {
   callerName: string;
@@ -49,8 +50,8 @@ export function IncomingCallOverlay({
   const { playSound, stopSound } = useSound();
 
   useEffect(() => {
-    // Start ringtone
-    playSound("ringtone");
+    // Start ringtone (native — plays even in silent mode)
+    startRingtone();
 
     // Pulsing ring animations
     ring1.value = withRepeat(
@@ -120,7 +121,7 @@ export function IncomingCallOverlay({
 
     return () => {
       if (hapticInterval.current) clearInterval(hapticInterval.current);
-      stopSound("ringtone");
+      stopRingtone();
     };
   }, [ring1, ring2, ring3, ringOpacity1, ringOpacity2, ringOpacity3, playSound, stopSound]);
 
@@ -184,7 +185,7 @@ export function IncomingCallOverlay({
               onPress={() => {
                 if (Platform.OS !== "web")
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                stopSound("ringtone");
+                stopRingtone();
                 onDecline();
               }}
             >
@@ -199,7 +200,7 @@ export function IncomingCallOverlay({
               onPress={() => {
                 if (Platform.OS !== "web")
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                stopSound("ringtone");
+                stopRingtone();
                 playSound("success");
                 onAccept();
               }}

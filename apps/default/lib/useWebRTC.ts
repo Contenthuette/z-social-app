@@ -219,23 +219,29 @@ export function useWebRTC({
         console.log(
           `[WebRTC] Requesting media: audio=true, video=${isVideo}, role=${isInitiator ? "initiator" : "receiver"}`,
         );
-        let stream: MediaStreamLike;
+        let stream: MediaStreamLike | null = null;
         try {
+          // Keep constraints minimal — fixed high-res constraints make getUserMedia
+          // hard-fail on some devices. Let WebRTC negotiate the resolution.
           stream = await rtc.mediaDevices.getUserMedia({
             audio: true,
-            video: isVideo
-              ? {
-                  facingMode: "user",
-                  width: { ideal: 1920 },
-                  height: { ideal: 1080 },
-                  frameRate: { ideal: 30 },
-                }
-              : false,
+            video: isVideo ? { facingMode: "user" } : false,
           });
         } catch (mediaError: unknown) {
           const msg = mediaError instanceof Error ? mediaError.message : String(mediaError);
           console.error("[WebRTC] getUserMedia failed:", msg);
+          // Fallback: retry with the simplest possible video request before giving up
+          if (isVideo) {
+            try {
+              stream = await rtc.mediaDevices.getUserMedia({ audio: true, video: true });
+              console.log("[WebRTC] getUserMedia succeeded on video fallback");
+            } catch (retryError) {
+              console.error("[WebRTC] getUserMedia video fallback failed:", retryError);
+            }
+          }
+        }
 
+        if (!stream) {
           // Show a user-friendly alert on native
           if (Platform.OS !== "web") {
             Alert.alert(

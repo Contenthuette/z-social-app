@@ -96,6 +96,18 @@ export default function GroupsScreen() {
   );
   const liveGroupSet = new Set(liveGroupIds ?? []);
 
+  const pinnedGroups = useQuery(
+    api.groups.listPinned,
+    isAuthenticated && tab === "groups" ? {} : "skip",
+  );
+  const groupUnread = useQuery(
+    api.groups.myGroupUnread,
+    isAuthenticated && tab === "groups" ? {} : "skip",
+  );
+  const unreadByGroup = new Map(
+    (groupUnread ?? []).map((g) => [g.groupId as string, g.count]),
+  );
+
   const {
     results: groups,
     status: groupsStatus,
@@ -160,6 +172,11 @@ export default function GroupsScreen() {
               <View style={styles.liveInlineDot} />
             </View>
           )}
+          {(unreadByGroup.get(item._id as string) ?? 0) > 0 && (
+            <View style={styles.groupUnreadBadge}>
+              <Text style={styles.groupUnreadText}>{unreadByGroup.get(item._id as string)}</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.cardMeta} numberOfLines={1}>
           {[item.city || item.county, item.topic].filter(Boolean).join(" · ")}
@@ -180,6 +197,57 @@ export default function GroupsScreen() {
           activeOpacity={0.7}
         >
           <Text style={styles.joinText}>Beitreten</Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+
+  const renderPinnedGroup = (item: NonNullable<typeof pinnedGroups>[number]) => (
+    <TouchableOpacity
+      key={item._id}
+      style={styles.pinnedCard}
+      onPress={() => router.navigate({ pathname: "/(main)/group-detail", params: { id: item._id } })}
+      activeOpacity={0.75}
+    >
+      <View style={styles.cardThumb}>
+        {item.thumbnailUrl ? (
+          <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbImage} contentFit="cover" transition={200} />
+        ) : (
+          <View style={styles.thumbPlaceholderDark}>
+            <SymbolView name="person.3.fill" size={22} tintColor={colors.gray500} />
+          </View>
+        )}
+        {liveGroupSet.has(item._id) && (
+          <View style={styles.liveThumbBadge}>
+            <View style={styles.liveThumbDot} />
+            <Text style={styles.liveThumbText}>LIVE</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.cardBody}>
+        <View style={styles.cardNameRow}>
+          <Text style={[styles.cardName, styles.pinnedName]} numberOfLines={1}>{item.name}</Text>
+          {(unreadByGroup.get(item._id as string) ?? 0) > 0 && (
+            <View style={styles.groupUnreadBadge}>
+              <Text style={styles.groupUnreadText}>{unreadByGroup.get(item._id as string)}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.cardMeta, styles.pinnedMeta]} numberOfLines={1}>
+          {[item.city || item.county, item.topic].filter(Boolean).join(" · ")}
+        </Text>
+        <Text style={[styles.cardMembers, styles.pinnedMembers]}>
+          {item.memberCount} {item.memberCount === 1 ? "Mitglied" : "Mitglieder"}
+        </Text>
+      </View>
+      {item.isMember ? (
+        <View style={styles.pinnedJoinedPill}>
+          <SymbolView name="checkmark" size={12} tintColor={colors.gray400} />
+          <Text style={styles.pinnedJoinedText}>Dabei</Text>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.pinnedJoinPill} onPress={() => handleJoin(item._id)} activeOpacity={0.7}>
+          <Text style={styles.pinnedJoinText}>Beitreten</Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -214,6 +282,12 @@ export default function GroupsScreen() {
       </View>
     </TouchableOpacity>
   );
+
+  const pinnedList = tab === "groups" && !searchQuery ? (pinnedGroups ?? []) : [];
+  const pinnedIds = new Set(pinnedList.map((g) => g._id));
+  const visibleGroups = pinnedIds.size > 0
+    ? groups.filter((g) => !pinnedIds.has(g._id))
+    : groups;
 
   const listHeader = (
     <>
@@ -259,6 +333,13 @@ export default function GroupsScreen() {
           )}
         </View>
       </View>
+
+      {/* Angepinnte Gruppen (admin) */}
+      {pinnedList.length > 0 && (
+        <View style={styles.pinnedSection}>
+          {pinnedList.map(renderPinnedGroup)}
+        </View>
+      )}
     </>
   );
 
@@ -294,7 +375,7 @@ export default function GroupsScreen() {
       {/* Scrollable content */}
       {tab === "groups" ? (
         <FlatList
-          data={groups}
+          data={visibleGroups}
           renderItem={renderGroup}
           keyExtractor={item => item._id}
           contentContainerStyle={styles.list}
@@ -619,6 +700,57 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   joinText: { fontSize: 13, fontWeight: "600", color: colors.white },
+
+  /* Angepinnte Gruppen (schwarzes Widget) */
+  pinnedSection: { marginBottom: spacing.sm },
+  pinnedCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    marginHorizontal: spacing.xl,
+    backgroundColor: colors.black,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  thumbPlaceholderDark: {
+    width: 54,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.gray800,
+  },
+  pinnedName: { color: colors.white },
+  pinnedMeta: { color: colors.gray300 },
+  pinnedMembers: { color: colors.gray400 },
+  pinnedJoinPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.white,
+  },
+  pinnedJoinText: { fontSize: 13, fontWeight: "700", color: colors.black },
+  pinnedJoinedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    backgroundColor: colors.gray800,
+  },
+  pinnedJoinedText: { fontSize: 13, fontWeight: "600", color: colors.gray300 },
+  groupUnreadBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupUnreadText: { fontSize: 11, fontWeight: "700", color: colors.white, fontVariant: ["tabular-nums"] },
+
   arrowWrap: {
     width: 30,
     alignItems: "center",

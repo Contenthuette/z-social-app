@@ -56,6 +56,7 @@ interface AdminGroup {
   visibility: "public" | "invite_only" | "request";
   creatorName: string;
   createdAt: number;
+  pinnedAt?: number;
 }
 
 interface AdminMemberEvent {
@@ -241,6 +242,21 @@ export default function AdminDashboard() {
   /* ── Groups ── */
   const groups = useQuery(api.admin.listGroups, isAuthenticated ? {} : "skip");
   const deleteGroupMut = useMutation(api.admin.deleteGroupAdmin);
+  const pinGroupMut = useMutation(api.admin.pinGroup);
+  const unpinGroupMut = useMutation(api.admin.unpinGroup);
+
+  const handleTogglePin = async (group: AdminGroup) => {
+    try {
+      if (group.pinnedAt) {
+        await unpinGroupMut({ groupId: group._id });
+      } else {
+        await pinGroupMut({ groupId: group._id });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Aktion fehlgeschlagen.";
+      if (Platform.OS !== "web") Alert.alert("Hinweis", msg.replace(/^\[.*?\]\s*/, ""));
+    }
+  };
 
   /* ── Member Events ── */
   const memberEvents = useQuery(api.admin.listMemberEventsAdmin, isAuthenticated ? {} : "skip");
@@ -908,6 +924,15 @@ export default function AdminDashboard() {
                 </View>
                 <View style={[styles.eventExpanded, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.gray200 }]}>
                   <View style={styles.eventActions}>
+                    <TouchableOpacity
+                      onPress={() => handleTogglePin(g)}
+                      style={[styles.eventActionBtn, g.pinnedAt ? { backgroundColor: colors.black } : null]}
+                    >
+                      <SymbolView name={g.pinnedAt ? "pin.slash" : "pin"} size={13} tintColor={g.pinnedAt ? colors.white : colors.gray600} />
+                      <Text style={[styles.eventActionText, g.pinnedAt ? { color: colors.white } : null]}>
+                        {g.pinnedAt ? "Angepinnt" : "Anpinnen"}
+                      </Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => router.navigate(`/(main)/admin-group-form?groupId=${g._id}` as "/")}
                       style={styles.eventActionBtn}

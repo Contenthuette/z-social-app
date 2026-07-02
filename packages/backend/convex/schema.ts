@@ -80,12 +80,16 @@ export default defineSchema({
     isMemberEventGroup: v.optional(v.boolean()),
     // Link back to the member event that owns this group
     memberEventId: v.optional(v.id("memberEvents")),
+    // When set, this group is pinned to the top of the Groups list (admin only, max 3).
+    // Value is the timestamp it was pinned (used for ordering).
+    pinnedAt: v.optional(v.number()),
   })
     .index("by_creatorId", ["creatorId"])
     .index("by_county_and_city", ["county", "city"])
     .index("by_topic", ["topic"])
     .index("by_createdAt", ["createdAt"])
     .index("by_memberEventId", ["memberEventId"])
+    .index("by_pinnedAt", ["pinnedAt"])
     .searchIndex("search_name", { searchField: "name" })
     .searchIndex("search_text", { searchField: "searchText" }),
 
@@ -366,11 +370,13 @@ export default defineSchema({
       v.literal("event_deleted"),
       v.literal("post_removed"),
       v.literal("friend_request_accepted"),
-      v.literal("friend_request_declined")
+      v.literal("friend_request_declined"),
+      v.literal("group_kicked")
     ),
     title: v.string(),
     body: v.string(),
     referenceId: v.optional(v.string()),
+    senderId: v.optional(v.id("users")),
     isRead: v.boolean(),
     createdAt: v.number(),
   })

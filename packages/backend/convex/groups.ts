@@ -100,6 +100,62 @@ export const list = authQuery({
   },
 });
 
+/** Up to 3 admin-pinned groups, shown at the top of the Groups list. */
+export const listPinned = authQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("groups"),
+      name: v.string(),
+      description: v.optional(v.string()),
+      thumbnailUrl: v.optional(v.string()),
+      county: v.optional(v.string()),
+      city: v.optional(v.string()),
+      topic: v.optional(v.string()),
+      visibility: v.union(v.literal("public"), v.literal("invite_only"), v.literal("request")),
+      memberCount: v.number(),
+      isMember: v.boolean(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const myUserId = await getMyUserId(ctx);
+    const pinned = await ctx.db
+      .query("groups")
+      .withIndex("by_pinnedAt", (q) => q.gt("pinnedAt", 0))
+      .order("asc")
+      .take(3);
+
+    return await Promise.all(
+      pinned
+        .filter((group) => !group.isMemberEventGroup)
+        .map(async (group) => {
+          const membership = myUserId
+            ? await ctx.db
+                .query("groupMembers")
+                .withIndex("by_groupId_and_userId", (q) =>
+                  q.eq("groupId", group._id).eq("userId", myUserId),
+                )
+                .unique()
+            : null;
+          return {
+            _id: group._id,
+            name: group.name,
+            description: group.description,
+            thumbnailUrl: group.thumbnailStorageId
+              ? ((await ctx.storage.getUrl(group.thumbnailStorageId)) ?? undefined)
+              : group.thumbnailUrl,
+            county: group.county,
+            city: group.city,
+            topic: group.topic,
+            visibility: group.visibility,
+            memberCount: group.memberCount,
+            isMember: membership?.status === "active",
+          };
+        }),
+    );
+  },
+});
+
 export const getById = query({
   args: { groupId: v.id("groups") },
   returns: v.union(v.null(), v.object({
@@ -379,6 +435,52 @@ export const leave = authMutation({
   },
 });
 
+// Remove a member from the group (group creator or admin only)
+export const kickMember = authMutation({
+  args: { groupId: v.id("groups"), userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) throw new Error("User not found");
+
+    const group = await ctx.db.get(args.groupId);
+    if (!group) throw new Error("Gruppe nicht gefunden");
+
+    const myMembership = await ctx.db.query("groupMembers")
+      .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", myUserId))
+      .unique();
+    const isCreator = group.creatorId === myUserId;
+    if (!isCreator && (!myMembership || myMembership.role !== "admin")) {
+      throw new Error("Nur Gruppen-Admins können Mitglieder entfernen");
+    }
+    if (args.userId === myUserId) throw new Error("Du kannst dich nicht selbst entfernen");
+    if (args.userId === group.creatorId) throw new Error("Der Ersteller kann nicht entfernt werden");
+
+    const membership = await ctx.db.query("groupMembers")
+      .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", args.userId))
+      .unique();
+    if (!membership) return null;
+
+    const wasActive = membership.status === "active";
+    await ctx.db.delete(membership._id);
+    if (wasActive && group.memberCount > 0) {
+      await ctx.db.patch(args.groupId, { memberCount: group.memberCount - 1 });
+    }
+
+    await ctx.db.insert("notifications", {
+      userId: args.userId,
+      senderId: myUserId,
+      type: "group_kicked",
+      title: "Aus Gruppe entfernt",
+      body: `Du wurdest aus der Gruppe "${group.name}" entfernt.`,
+      referenceId: args.groupId,
+      isRead: false,
+      createdAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 export const getMembers = query({
   args: { groupId: v.id("groups") },
   returns: v.array(v.object({
@@ -406,6 +508,49 @@ export const getMembers = query({
           status: m.status,
         });
       }
+    }
+    return results;
+  },
+});
+
+/** Unread message counts for the current user's active groups (for badges). */
+export const myGroupUnread = authQuery({
+  args: {},
+  returns: v.array(v.object({ groupId: v.id("groups"), count: v.number() })),
+  handler: async (ctx) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) return [];
+
+    const memberships = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .take(200);
+    const activeGroupIds = memberships
+      .filter((m) => m.status === "active")
+      .map((m) => m.groupId);
+
+    const results: Array<{ groupId: Id<"groups">; count: number }> = [];
+    for (const groupId of activeGroupIds) {
+      const conv = await ctx.db
+        .query("conversations")
+        .withIndex("by_groupId", (q) => q.eq("groupId", groupId))
+        .first();
+      if (!conv) continue;
+      const rs = await ctx.db
+        .query("conversationReadStatus")
+        .withIndex("by_conversationId_and_userId", (q) =>
+          q.eq("conversationId", conv._id).eq("userId", myUserId),
+        )
+        .unique();
+      const lastReadAt = rs?.lastReadAt ?? 0;
+      const unread = await ctx.db
+        .query("messages")
+        .withIndex("by_conversationId_and_createdAt", (q) =>
+          q.eq("conversationId", conv._id).gt("createdAt", lastReadAt),
+        )
+        .take(50);
+      const count = unread.filter((m) => m.senderId !== myUserId).length;
+      if (count > 0) results.push({ groupId, count });
     }
     return results;
   },
