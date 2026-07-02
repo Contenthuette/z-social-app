@@ -360,6 +360,123 @@ export const listConversations = authQuery({
   },
 });
 
+// Newest incoming message across all my DM + group conversations.
+// Drives the in-app top banner while the app is open.
+export const getLatestIncomingMessage = authQuery({
+  args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("messages"),
+      routeType: v.union(v.literal("direct"), v.literal("group")),
+      conversationId: v.id("conversations"),
+      groupId: v.optional(v.id("groups")),
+      title: v.string(),
+      body: v.string(),
+      avatarUrl: v.optional(v.string()),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) return null;
+
+    // Direct conversations I'm part of
+    const recentConversations = await ctx.db
+      .query("conversations")
+      .withIndex("by_lastMessageAt")
+      .order("desc")
+      .take(60);
+    const directConvs = recentConversations.filter(
+      (c) => c.type === "direct" && c.participantIds?.includes(myUserId),
+    );
+
+    // Group conversations via my active memberships
+    const memberships = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .take(100);
+    const activeGroupIds = memberships
+      .filter((m) => m.status === "active")
+      .map((m) => m.groupId);
+    const groupConvs = (
+      await Promise.all(
+        activeGroupIds.map((gid) =>
+          ctx.db
+            .query("conversations")
+            .withIndex("by_groupId", (q) => q.eq("groupId", gid))
+            .unique(),
+        ),
+      )
+    ).filter((c): c is Doc<"conversations"> => !!c);
+
+    // Drop DMs the user deleted from their inbox
+    const settings = await ctx.db
+      .query("conversationSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    const deleted = new Set(
+      settings.filter((s) => s.isDeleted).map((s) => s.conversationId as string),
+    );
+
+    const allConvs = [...directConvs, ...groupConvs].filter(
+      (c) => !deleted.has(c._id as string),
+    );
+
+    const lasts = await Promise.all(
+      allConvs.map((c) =>
+        ctx.db
+          .query("messages")
+          .withIndex("by_conversationId", (q) => q.eq("conversationId", c._id))
+          .order("desc")
+          .first(),
+      ),
+    );
+
+    let best: { conv: Doc<"conversations">; msg: Doc<"messages"> } | null = null;
+    allConvs.forEach((c, i) => {
+      const m = lasts[i];
+      if (!m || m.senderId === myUserId) return;
+      if (!best || m.createdAt > best.msg.createdAt) best = { conv: c, msg: m };
+    });
+    if (!best) return null;
+
+    const chosen: { conv: Doc<"conversations">; msg: Doc<"messages"> } = best;
+    const sender = await ctx.db.get(chosen.msg.senderId);
+    const preview = previewForMessage(chosen.msg);
+
+    if (chosen.conv.type === "group") {
+      const group = chosen.conv.groupId ? await ctx.db.get(chosen.conv.groupId) : null;
+      return {
+        _id: chosen.msg._id,
+        routeType: "group" as const,
+        conversationId: chosen.conv._id,
+        groupId: chosen.conv.groupId,
+        title: group?.name ?? "Gruppe",
+        body: `${sender?.name ?? "Jemand"}: ${preview}`,
+        avatarUrl: undefined,
+        createdAt: chosen.msg.createdAt,
+      };
+    }
+
+    const avatarUrl = sender
+      ? sender.avatarStorageId
+        ? ((await ctx.storage.getUrl(sender.avatarStorageId)) ?? undefined)
+        : sender.avatarUrl
+      : undefined;
+    return {
+      _id: chosen.msg._id,
+      routeType: "direct" as const,
+      conversationId: chosen.conv._id,
+      groupId: undefined,
+      title: sender?.name ?? "Neue Nachricht",
+      body: preview,
+      avatarUrl,
+      createdAt: chosen.msg.createdAt,
+    };
+  },
+});
+
 // Total unread messages count across all conversations
 export const getUnreadConversationsCount = authQuery({
   args: {},

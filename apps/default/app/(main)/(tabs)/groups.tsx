@@ -20,6 +20,9 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 type Tab = "groups" | "people";
 
+// Keep the unread badge to at most 3 characters.
+const formatUnread = (n: number): string => (n > 999 ? "999+" : String(n));
+
 /* ─── Announcement Banner ─── */
 function AnnouncementBanner() {
   const announcement = useQuery(api.admin.getActiveAnnouncement);
@@ -164,17 +167,17 @@ export default function GroupsScreen() {
           </View>
         )}
       </View>
+      {(unreadByGroup.get(item._id as string) ?? 0) > 0 && (
+        <View style={styles.cardUnreadBadge} pointerEvents="none">
+          <Text style={styles.cardUnreadText}>{formatUnread(unreadByGroup.get(item._id as string) ?? 0)}</Text>
+        </View>
+      )}
       <View style={styles.cardBody}>
         <View style={styles.cardNameRow}>
           <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
           {liveGroupSet.has(item._id) && (
             <View style={styles.liveInlineBadge}>
               <View style={styles.liveInlineDot} />
-            </View>
-          )}
-          {(unreadByGroup.get(item._id as string) ?? 0) > 0 && (
-            <View style={styles.groupUnreadBadge}>
-              <Text style={styles.groupUnreadText}>{unreadByGroup.get(item._id as string)}</Text>
             </View>
           )}
         </View>
@@ -224,14 +227,14 @@ export default function GroupsScreen() {
           </View>
         )}
       </View>
+      {(unreadByGroup.get(item._id as string) ?? 0) > 0 && (
+        <View style={styles.cardUnreadBadge} pointerEvents="none">
+          <Text style={styles.cardUnreadText}>{formatUnread(unreadByGroup.get(item._id as string) ?? 0)}</Text>
+        </View>
+      )}
       <View style={styles.cardBody}>
         <View style={styles.cardNameRow}>
           <Text style={[styles.cardName, styles.pinnedName]} numberOfLines={1}>{item.name}</Text>
-          {(unreadByGroup.get(item._id as string) ?? 0) > 0 && (
-            <View style={styles.groupUnreadBadge}>
-              <Text style={styles.groupUnreadText}>{unreadByGroup.get(item._id as string)}</Text>
-            </View>
-          )}
         </View>
         <Text style={[styles.cardMeta, styles.pinnedMeta]} numberOfLines={1}>
           {[item.city || item.county, item.topic].filter(Boolean).join(" · ")}
@@ -740,16 +743,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray800,
   },
   pinnedJoinedText: { fontSize: 13, fontWeight: "600", color: colors.gray300 },
-  groupUnreadBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+  // Unread badge straddling the top-left corner of the card thumbnail
+  cardUnreadBadge: {
+    position: "absolute",
+    top: 3,
+    left: 3,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     paddingHorizontal: 5,
     backgroundColor: colors.danger,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.white,
+    zIndex: 5,
   },
-  groupUnreadText: { fontSize: 11, fontWeight: "700", color: colors.white, fontVariant: ["tabular-nums"] },
+  cardUnreadText: { fontSize: 11, fontWeight: "800", color: colors.white, fontVariant: ["tabular-nums"] },
 
   arrowWrap: {
     width: 30,

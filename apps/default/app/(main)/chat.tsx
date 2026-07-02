@@ -266,10 +266,19 @@ export default function ChatScreen() {
         <TouchableOpacity onPress={() => safeBack("chat")} style={styles.backBtn}>
           <SymbolView name="chevron.left" size={20} tintColor={colors.black} />
         </TouchableOpacity>
-        {partner && (
-          <Avatar uri={partner.avatarUrl} name={partner.name} size={32} />
-        )}
-        <Text style={styles.headerTitle}>{partner?.name ?? "Chat"}</Text>
+        <TouchableOpacity
+          style={styles.headerProfile}
+          activeOpacity={0.7}
+          disabled={!partner}
+          onPress={() => {
+            if (partner) router.navigate({ pathname: "/(main)/user-profile", params: { id: partner._id } });
+          }}
+        >
+          {partner && (
+            <Avatar uri={partner.avatarUrl} name={partner.name} size={32} />
+          )}
+          <Text style={styles.headerTitle}>{partner?.name ?? "Chat"}</Text>
+        </TouchableOpacity>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerAction} onPress={() => handleCall("audio")}>
             <SymbolView name="phone" size={20} tintColor={colors.black} />
@@ -326,6 +335,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.gray100 },
   backBtn: { padding: spacing.xs },
+  headerProfile: { flex: 1, flexDirection: "row", alignItems: "center" },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: "600", color: colors.black, marginLeft: spacing.sm },
   headerActions: { flexDirection: "row", gap: spacing.sm },
   headerAction: { padding: spacing.sm },

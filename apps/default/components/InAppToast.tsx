@@ -10,7 +10,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { router } from "expo-router";
+import { router, usePathname, useGlobalSearchParams } from "expo-router";
+import { Image } from "expo-image";
 import { SymbolView } from "@/components/Icon";
 import { colors, spacing, radius } from "@/lib/theme";
 import { useSound } from "@/lib/sounds";
@@ -19,20 +20,36 @@ import * as Haptics from "expo-haptics";
 const AUTO_DISMISS_MS = 3000;
 const HIDDEN_Y = -220;
 
+type Banner = {
+  title: string;
+  body: string;
+  avatarUrl?: string;
+  icon: "bell" | "message";
+  onPress: () => void;
+};
+
 /**
- * WhatsApp-style in-app banner. Watches the newest notification and slides a
- * toast in from the top when a fresh one arrives. Auto-dismisses after 3s, or
- * tap the X to close. Tapping the banner opens the notifications screen.
+ * WhatsApp-style in-app banner. Slides a small toast in from the top when a
+ * fresh notification OR a new incoming message arrives while the app is open.
+ * Auto-dismisses after 3s, or tap the X to close. Tapping the banner opens the
+ * relevant screen (notifications / DM chat / group chat).
  */
 export function InAppToast() {
   const { isAuthenticated } = useConvexAuth();
-  const latest = useQuery(api.notifications.getLatest, isAuthenticated ? {} : "skip");
+  const latestNotif = useQuery(api.notifications.getLatest, isAuthenticated ? {} : "skip");
+  const latestMsg = useQuery(api.messaging.getLatestIncomingMessage, isAuthenticated ? {} : "skip");
   const insets = useSafeAreaInsets();
   const { playSound } = useSound();
 
-  const [current, setCurrent] = useState<{ title: string; body: string } | null>(null);
-  const baselineRef = useRef<string | null>(null);
-  const initializedRef = useRef(false);
+  const pathname = usePathname();
+  const params = useGlobalSearchParams<{ id?: string }>();
+
+  const [current, setCurrent] = useState<Banner | null>(null);
+  const currentRef = useRef<Banner | null>(null);
+  const notifBaseline = useRef<string | null>(null);
+  const notifInit = useRef(false);
+  const msgBaseline = useRef<string | null>(null);
+  const msgInit = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const translateY = useSharedValue(HIDDEN_Y);
@@ -44,21 +61,9 @@ export function InAppToast() {
     });
   }, [translateY]);
 
-  useEffect(() => {
-    if (!latest) return;
-    // First value we ever see is the baseline — it's an existing/old notification.
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      baselineRef.current = latest._id;
-      return;
-    }
-    if (latest._id === baselineRef.current) return;
-    baselineRef.current = latest._id;
-    if (latest.isRead) return;
-    // Guard against showing stale notifications after a reconnect.
-    if (Date.now() - latest.createdAt > 15000) return;
-
-    setCurrent({ title: latest.title, body: latest.body });
+  const show = useCallback((banner: Banner) => {
+    currentRef.current = banner;
+    setCurrent(banner);
     playSound("receive");
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -66,7 +71,67 @@ export function InAppToast() {
     translateY.value = withSpring(0, { damping: 18, stiffness: 180 });
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => hide(), AUTO_DISMISS_MS);
-  }, [latest, playSound, translateY, hide]);
+  }, [playSound, translateY, hide]);
+
+  // ── New notification (likes, friend requests, kicks, …) ──────────────
+  useEffect(() => {
+    if (!latestNotif) return;
+    if (!notifInit.current) {
+      notifInit.current = true;
+      notifBaseline.current = latestNotif._id;
+      return;
+    }
+    if (latestNotif._id === notifBaseline.current) return;
+    notifBaseline.current = latestNotif._id;
+    if (latestNotif.isRead) return;
+    if (Date.now() - latestNotif.createdAt > 15000) return;
+
+    show({
+      title: latestNotif.title,
+      body: latestNotif.body,
+      icon: "bell",
+      onPress: () => { hide(); router.navigate("/(main)/notifications"); },
+    });
+  }, [latestNotif, show, hide]);
+
+  // ── New incoming DM / group message ──────────────────────────────────
+  useEffect(() => {
+    if (!latestMsg) return;
+    if (!msgInit.current) {
+      msgInit.current = true;
+      msgBaseline.current = latestMsg._id;
+      return;
+    }
+    if (latestMsg._id === msgBaseline.current) return;
+    msgBaseline.current = latestMsg._id;
+    if (Date.now() - latestMsg.createdAt > 15000) return;
+
+    // Don't interrupt if the user is already in that exact chat.
+    const viewingDirect =
+      latestMsg.routeType === "direct" &&
+      pathname.endsWith("/chat") &&
+      params.id === latestMsg.conversationId;
+    const viewingGroup =
+      latestMsg.routeType === "group" &&
+      pathname.endsWith("/group-chat") &&
+      params.id === latestMsg.groupId;
+    if (viewingDirect || viewingGroup) return;
+
+    show({
+      title: latestMsg.title,
+      body: latestMsg.body,
+      avatarUrl: latestMsg.avatarUrl,
+      icon: "message",
+      onPress: () => {
+        hide();
+        if (latestMsg.routeType === "group" && latestMsg.groupId) {
+          router.navigate({ pathname: "/(main)/group-chat", params: { id: latestMsg.groupId } });
+        } else {
+          router.navigate({ pathname: "/(main)/chat", params: { id: latestMsg.conversationId } });
+        }
+      },
+    });
+  }, [latestMsg, pathname, params.id, show, hide]);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -79,13 +144,18 @@ export function InAppToast() {
       style={[styles.wrap, { paddingTop: Math.max(insets.top, 12) + 6 }, animStyle]}
       pointerEvents="box-none"
     >
-      <Pressable
-        style={styles.toast}
-        onPress={() => { hide(); router.navigate("/(main)/notifications"); }}
-      >
-        <View style={styles.iconWrap}>
-          <SymbolView name="bell.fill" size={16} tintColor={colors.white} />
-        </View>
+      <Pressable style={styles.toast} onPress={() => current.onPress()}>
+        {current.avatarUrl ? (
+          <Image source={{ uri: current.avatarUrl }} style={styles.avatar} contentFit="cover" />
+        ) : (
+          <View style={styles.iconWrap}>
+            <SymbolView
+              name={current.icon === "message" ? "message.fill" : "bell.fill"}
+              size={16}
+              tintColor={colors.white}
+            />
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
           <Text style={styles.body} numberOfLines={2}>{current.body}</Text>
@@ -127,6 +197,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.gray100 },
   title: { fontSize: 14, fontWeight: "700", color: colors.black },
   body: { fontSize: 13, color: colors.gray600, marginTop: 1 },
   closeBtn: { width: 26, height: 26, alignItems: "center", justifyContent: "center" },
