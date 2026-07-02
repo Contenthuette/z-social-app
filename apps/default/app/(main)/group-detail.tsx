@@ -306,19 +306,6 @@ export default function GroupDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Go Live (members only, when nobody is streaming yet) */}
-          {isMember && !activeStream && (
-            <TouchableOpacity
-              style={styles.goLiveRow}
-              onPress={() => router.navigate({ pathname: "/(main)/go-live", params: { groupId: id } })}
-              activeOpacity={0.85}
-            >
-              <View style={styles.goLiveDot} />
-              <Text style={styles.goLiveText}>Live gehen</Text>
-              <SymbolView name="video.fill" size={17} tintColor={colors.black} />
-            </TouchableOpacity>
-          )}
-
           {/* Pending Requests (Admin only) */}
           {isAdmin && pendingRequests && pendingRequests.length > 0 && (
             <View style={styles.section}>
