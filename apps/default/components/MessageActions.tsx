@@ -1,7 +1,6 @@
 import React from "react";
 import { Modal, View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
-import { SymbolView } from "@/components/Icon";
 import { colors } from "@/lib/theme";
 
 export const REACTION_EMOJIS = ["❤️", "😂", "👍", "😮", "😢", "🙏"];
@@ -53,7 +52,6 @@ export function MessageActionSheet({
               onPress={() => { onReply(); onClose(); }}
             >
               <Text style={styles.actionText}>Antworten</Text>
-              <SymbolView name="arrowshape.turn.up.left" size={18} tintColor={colors.black} />
             </Pressable>
             {canDelete && onDelete && (
               <>
@@ -63,7 +61,6 @@ export function MessageActionSheet({
                   onPress={() => { onDelete(); onClose(); }}
                 >
                   <Text style={[styles.actionText, { color: "#FF3B30" }]}>Löschen</Text>
-                  <SymbolView name="trash" size={18} tintColor="#FF3B30" />
                 </Pressable>
               </>
             )}
