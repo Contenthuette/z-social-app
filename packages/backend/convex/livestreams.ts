@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
-import type { Id } from "./_generated/dataModel";
+import type { Id, Doc } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { rateLimiter, INPUT_LIMITS, validateStringLength, sanitizeText } from "./rateLimit";
 
@@ -9,6 +9,12 @@ const MAX_PARTICIPANTS = 2;
 const MAX_VIEWERS_PER_STREAM = 50;
 const COMMENTS_PAGE_SIZE = 40;
 const SIGNAL_FETCH_LIMIT = 100;
+
+// Auto-cleanup thresholds (backend-only stale detection, no client heartbeat).
+// A stream with zero viewers and no activity for this long is treated as abandoned.
+const STALE_NO_VIEWER_MS = 2 * 60 * 1000; // 2 minutes
+// Hard safety cap: end any stream still "live" after this long, regardless of viewers.
+const MAX_LIVESTREAM_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 type DbReader = QueryCtx["db"] | MutationCtx["db"];
 
@@ -28,6 +34,53 @@ async function requireUserId(
   const userId = await resolveUserId(ctx);
   if (!userId) throw new Error("User not found");
   return userId;
+}
+
+/** Bump the stream's activity timestamp (keeps it out of the stale-cleanup window). */
+async function touchLivestream(
+  ctx: { db: MutationCtx["db"] },
+  livestreamId: Id<"livestreams">,
+): Promise<void> {
+  await ctx.db.patch(livestreamId, { lastActivityAt: Date.now() });
+}
+
+/** Mark a stream ended and remove its viewers, signals and pending join requests. */
+async function finalizeStream(
+  ctx: { db: MutationCtx["db"] },
+  stream: Doc<"livestreams">,
+): Promise<void> {
+  if (stream.status !== "ended") {
+    await ctx.db.patch(stream._id, {
+      status: "ended",
+      endedAt: Date.now(),
+      coHostId: undefined,
+      coHostName: undefined,
+      coHostAvatarUrl: undefined,
+      participantCount: 0,
+    });
+  }
+
+  const viewers = await ctx.db
+    .query("livestreamViewers")
+    .withIndex("by_livestreamId", (q) => q.eq("livestreamId", stream._id))
+    .collect();
+  for (const viewer of viewers) await ctx.db.delete(viewer._id);
+
+  const signals = await ctx.db
+    .query("livestreamSignaling")
+    .withIndex("by_livestreamId_and_recipientId", (q) =>
+      q.eq("livestreamId", stream._id),
+    )
+    .collect();
+  for (const signal of signals) await ctx.db.delete(signal._id);
+
+  const requests = await ctx.db
+    .query("livestreamJoinRequests")
+    .withIndex("by_livestreamId_and_status", (q) =>
+      q.eq("livestreamId", stream._id).eq("status", "pending"),
+    )
+    .collect();
+  for (const req of requests) await ctx.db.delete(req._id);
 }
 
 // ── Queries ──────────────────────────────────────────────────────
@@ -304,6 +357,17 @@ export const goLive = authMutation({
       groupName = group?.name;
     }
 
+    // A host can only have one live stream at a time. Auto-end any leftover
+    // streams they never explicitly closed (prevents duplicate/zombie streams).
+    const existing = await ctx.db
+      .query("livestreams")
+      .withIndex("by_hostId_and_status", (q) =>
+        q.eq("hostId", userId).eq("status", "live"),
+      )
+      .collect();
+    for (const old of existing) await finalizeStream(ctx, old);
+
+    const now = Date.now();
     return await ctx.db.insert("livestreams", {
       groupId: args.groupId,
       groupName,
@@ -315,7 +379,8 @@ export const goLive = authMutation({
       participantCount: 1,
       viewerCount: 0,
       peakViewerCount: 0,
-      startedAt: Date.now(),
+      startedAt: now,
+      lastActivityAt: now,
     });
   },
 });
@@ -411,31 +476,7 @@ export const endStream = authMutation({
     if (stream.hostId !== userId) throw new Error("Nur der Host kann den Stream beenden.");
     if (stream.status === "ended") return null;
 
-    await ctx.db.patch(args.livestreamId, {
-      status: "ended",
-      endedAt: Date.now(),
-      coHostId: undefined,
-      coHostName: undefined,
-      coHostAvatarUrl: undefined,
-      participantCount: 0,
-    });
-
-    // Clean up viewers
-    const viewers = await ctx.db
-      .query("livestreamViewers")
-      .withIndex("by_livestreamId", (q) => q.eq("livestreamId", args.livestreamId))
-      .collect();
-    for (const viewer of viewers) await ctx.db.delete(viewer._id);
-
-    // Clean up signals
-    const signals = await ctx.db
-      .query("livestreamSignaling")
-      .withIndex("by_livestreamId_and_recipientId", (q) =>
-        q.eq("livestreamId", args.livestreamId),
-      )
-      .collect();
-    for (const signal of signals) await ctx.db.delete(signal._id);
-
+    await finalizeStream(ctx, stream);
     return null;
   },
 });
@@ -480,6 +521,7 @@ export const joinStream = authMutation({
     await ctx.db.patch(args.livestreamId, {
       viewerCount: newCount,
       peakViewerCount: Math.max(stream.peakViewerCount, newCount),
+      lastActivityAt: Date.now(),
     });
 
     return null;
@@ -552,6 +594,7 @@ export const sendComment = authMutation({
       createdAt: Date.now(),
     });
 
+    await touchLivestream(ctx, args.livestreamId);
     return null;
   },
 });
@@ -735,5 +778,35 @@ export const getMyJoinRequestStatus = authQuery({
       )
       .first();
     return request?.status ?? "none";
+  },
+});
+
+// ── Maintenance ────────────────────────────────────────────────────
+
+/**
+ * Cron: end stale / abandoned livestreams (backend-only stale detection).
+ * - Ends streams with zero viewers and no activity for STALE_NO_VIEWER_MS.
+ * - Ends any stream still "live" past MAX_LIVESTREAM_MS (hard safety cap).
+ * Streams that currently have viewers are never ended here.
+ */
+export const cleanupStaleLivestreams = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const live = await ctx.db
+      .query("livestreams")
+      .withIndex("by_status", (q) => q.eq("status", "live"))
+      .take(200);
+
+    for (const s of live) {
+      const lastActive = s.lastActivityAt ?? s.startedAt;
+      const noViewerStale = s.viewerCount <= 0 && now - lastActive > STALE_NO_VIEWER_MS;
+      const hardExpired = now - s.startedAt > MAX_LIVESTREAM_MS;
+      if (noViewerStale || hardExpired) {
+        await finalizeStream(ctx, s);
+      }
+    }
+    return null;
   },
 });

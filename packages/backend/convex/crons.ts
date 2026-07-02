@@ -18,6 +18,13 @@ crons.interval(
 );
 
 crons.interval(
+  "cleanup stale livestreams",
+  { minutes: 1 },
+  internal.livestreams.cleanupStaleLivestreams,
+  {},
+);
+
+crons.interval(
   "delete expired polls",
   { hours: 1 },
   internal.polls.deleteExpiredPolls,

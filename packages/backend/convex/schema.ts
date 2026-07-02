@@ -504,11 +504,13 @@ export default defineSchema({
     viewerCount: v.number(),
     peakViewerCount: v.number(),
     startedAt: v.number(),
+    lastActivityAt: v.optional(v.number()),
     endedAt: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_groupId_and_status", ["groupId", "status"])
     .index("by_hostId", ["hostId"])
+    .index("by_hostId_and_status", ["hostId", "status"])
     .index("by_coHostId", ["coHostId"]),
 
   livestreamViewers: defineTable({
