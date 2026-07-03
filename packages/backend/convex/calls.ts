@@ -705,6 +705,7 @@ export const sendSignal = authMutation({
       v.literal("ice-candidate"),
     ),
     payload: v.string(),
+    toUserId: v.optional(v.id("users")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -723,6 +724,32 @@ export const sendSignal = authMutation({
     if (!senderParticipant) throw new Error("Call participant not found");
     if (senderParticipant.status === "declined" || senderParticipant.status === "left") {
       throw new Error("You are no longer part of this call");
+    }
+
+    // Targeted signaling (group/mesh calls): deliver to exactly one participant
+    if (args.toUserId) {
+      const targetParticipant = await getParticipantByCallAndUser(
+        ctx,
+        args.callId,
+        args.toUserId,
+      );
+      if (
+        !targetParticipant ||
+        targetParticipant.userId === myId ||
+        (targetParticipant.status !== "ringing" && targetParticipant.status !== "connected")
+      ) {
+        return null;
+      }
+
+      await ctx.db.insert("callSignaling", {
+        callId: args.callId,
+        senderId: myId,
+        recipientId: args.toUserId,
+        type: args.type,
+        payload: args.payload,
+      });
+
+      return null;
     }
 
     const participants = await getParticipantsForCall(ctx, args.callId);

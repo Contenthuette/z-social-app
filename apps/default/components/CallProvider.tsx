@@ -111,10 +111,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     try {
       await answerCall({ callId: incomingCall._id });
       setMinimizedCallId(null);
-      router.push({
-        pathname: "/(main)/call" as "/",
-        params: { id: incomingCall._id },
-      });
+      if (incomingCall.groupId) {
+        // Group calls use the mesh-based group call screen
+        router.push({
+          pathname: "/(main)/group-call" as "/",
+          params: { id: incomingCall._id },
+        });
+      } else {
+        router.push({
+          pathname: "/(main)/call" as "/",
+          params: { id: incomingCall._id },
+        });
+      }
     } catch (e) {
       console.error("Failed to answer call", e);
     }

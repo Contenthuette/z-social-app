@@ -20,7 +20,7 @@ import { router } from "expo-router";
 import { useCallContext } from "@/lib/call-context";
 import { useSound } from "@/lib/sounds";
 import { startRingtone, stopRingtone } from "@/lib/callRingtone";
-import { setSpeakerOn } from "@/lib/audioRouting";
+import { setSpeakerOn, forceSpeakerWithRetries } from "@/lib/audioRouting";
 import { BlurView } from "expo-blur";
 
 interface CallParticipant {
@@ -58,7 +58,8 @@ export function ActiveCallScreen({ callId }: ActiveCallScreenProps) {
 
   const hangingUpRef = useRef(false);
   const [callDuration, setCallDuration] = useState(0);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  // Calls default to loudspeaker (loud). 1:1 audio calls can be toggled quiet.
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
 
   const isVideoCall = call?.type === "video";
   const isInitiator = !!(call && me && call.callerId === me._id);
@@ -118,6 +119,17 @@ export function ActiveCallScreen({ callId }: ActiveCallScreenProps) {
     const interval = setInterval(() => setCallDuration((d) => d + 1), 1000);
     return () => clearInterval(interval);
   }, [phase]);
+
+  // Apply audio routing: speaker (loud) is the default; WebRTC resets the
+  // audio session on connect, so force it with retries while speaker is on.
+  useEffect(() => {
+    if (phase !== "live" && phase !== "connecting") return;
+    if (isSpeakerOn) {
+      const cancel = forceSpeakerWithRetries();
+      return cancel;
+    }
+    setSpeakerOn(false);
+  }, [phase, isSpeakerOn]);
 
   // Auto-dismiss when call ends
   useEffect(() => {

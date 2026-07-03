@@ -36,6 +36,30 @@ async function requireUserId(
   return userId;
 }
 
+/**
+ * Whether the given user may see/watch a stream that belongs to a group.
+ * Public groups → everyone. Private groups (request/invite_only) → active members only.
+ * Streams without a group are always public.
+ */
+async function canViewGroupStream(
+  ctx: { db: DbReader },
+  groupId: Id<"groups"> | undefined,
+  myUserId: Id<"users"> | null,
+): Promise<boolean> {
+  if (!groupId) return true;
+  const group = await ctx.db.get(groupId);
+  if (!group) return false;
+  if (group.visibility === "public") return true;
+  if (!myUserId) return false;
+  const membership = await ctx.db
+    .query("groupMembers")
+    .withIndex("by_groupId_and_userId", (q) =>
+      q.eq("groupId", groupId).eq("userId", myUserId),
+    )
+    .unique();
+  return membership?.status === "active";
+}
+
 /** Bump the stream's activity timestamp (keeps it out of the stale-cleanup window). */
 async function touchLivestream(
   ctx: { db: MutationCtx["db"] },
@@ -106,11 +130,18 @@ export const listActive = authQuery({
     }),
   ),
   handler: async (ctx) => {
-    const streams = await ctx.db
+    const myUserId = await resolveUserId(ctx);
+    const allStreams = await ctx.db
       .query("livestreams")
       .withIndex("by_status", (q) => q.eq("status", "live"))
       .order("desc")
       .take(20);
+
+    // Hide private-group streams from non-members
+    const visibility = await Promise.all(
+      allStreams.map((s) => canViewGroupStream(ctx, s.groupId, myUserId)),
+    );
+    const streams = allStreams.filter((_, i) => visibility[i]);
 
     return streams.map((s) => ({
       _id: s._id,
@@ -135,14 +166,19 @@ export const liveGroupIds = authQuery({
   args: {},
   returns: v.array(v.id("groups")),
   handler: async (ctx) => {
+    const myUserId = await resolveUserId(ctx);
     const streams = await ctx.db
       .query("livestreams")
       .withIndex("by_status", (q) => q.eq("status", "live"))
       .take(50);
+    const groupStreams = streams.filter(
+      (s): s is Doc<"livestreams"> & { groupId: Id<"groups"> } => s.groupId !== undefined,
+    );
+    const visibility = await Promise.all(
+      groupStreams.map((s) => canViewGroupStream(ctx, s.groupId, myUserId)),
+    );
     const ids = new Set(
-      streams
-        .map((s) => s.groupId)
-        .filter((id): id is Id<"groups"> => id !== undefined),
+      groupStreams.filter((_, i) => visibility[i]).map((s) => s.groupId),
     );
     return [...ids];
   },
@@ -490,6 +526,11 @@ export const joinStream = authMutation({
     const stream = await ctx.db.get(args.livestreamId);
     if (!stream) throw new Error("Livestream not found");
     if (stream.status !== "live") throw new Error("Dieser Livestream ist beendet.");
+
+    // Private-group streams: only active members may watch
+    if (!(await canViewGroupStream(ctx, stream.groupId, userId))) {
+      throw new Error("Dieser Livestream ist nur für Gruppenmitglieder sichtbar.");
+    }
 
     // Don't add participants as viewers
     if (stream.hostId === userId || stream.coHostId === userId) return null;
