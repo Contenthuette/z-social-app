@@ -46,8 +46,7 @@
       "expo-secure-store",
       "expo-font",
       "expo-web-browser",
-      "@livekit/react-native-expo-plugin",
-      "@config-plugins/react-native-webrtc"
+      "@livekit/react-native-expo-plugin"
     ],
     "experiments": {
       "typedRoutes": true

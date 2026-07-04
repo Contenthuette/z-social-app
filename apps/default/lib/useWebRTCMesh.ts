@@ -62,7 +62,7 @@ type RTCViewComponent = ComponentType<RTCViewProps>;
 
 if (Platform.OS !== "web") {
   try {
-    RTC = require("react-native-webrtc") as typeof RTC;
+    RTC = require("@livekit/react-native-webrtc") as typeof RTC;
   } catch {
     // react-native-webrtc not available
   }
