@@ -70,8 +70,12 @@ export function ZettiEditor({ visible, media, onCancel, onRetake, onSend }: Zett
 
   const panResponder = useRef(
     PanResponder.create({
-      // Let taps through to the TextInput; only claim clear vertical drags
+      // Let taps through to the TextInput; only claim clear vertical drags.
+      // Capture is required so a vertical drag is stolen from the focused
+      // TextInput (which otherwise keeps the touch for the text cursor).
       onMoveShouldSetPanResponder: (_evt, gesture) =>
+        Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onMoveShouldSetPanResponderCapture: (_evt, gesture) =>
         Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
       onPanResponderGrant: () => {
         dragStartYRef.current = textYRef.current;
@@ -196,7 +200,7 @@ export function ZettiEditor({ visible, media, onCancel, onRetake, onSend }: Zett
             <ActivityIndicator size="small" color="#000000" />
           ) : (
             <>
-              <Text style={styles.sendText}>Senden</Text>
+              <Text style={styles.sendText}>Zetti</Text>
               <SymbolView name="arrow.up" size={16} tintColor="#000000" />
             </>
           )}

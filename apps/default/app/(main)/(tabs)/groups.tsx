@@ -412,6 +412,11 @@ export default function GroupsScreen() {
           ))}
         </View>
       )}
+
+      {/* Feine Trennlinie zwischen angepinnten und übrigen Gruppen */}
+      {(personalPinnedList.length > 0 || pinnedList.length > 0) && visibleGroups.length > 0 && (
+        <View style={styles.pinnedDivider} />
+      )}
     </>
   );
 
@@ -786,6 +791,11 @@ const styles = StyleSheet.create({
 
   /* Persönlich angepinnte Gruppen */
   personalPinnedSection: { marginBottom: spacing.sm },
+  pinnedDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gray200,
+    marginBottom: spacing.sm,
+  },
   personalPinnedHeader: {
     flexDirection: "row",
     alignItems: "center",
