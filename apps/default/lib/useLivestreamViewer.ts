@@ -53,7 +53,7 @@ let RTC: {
 
 if (Platform.OS !== "web") {
   try {
-    RTC = require("@livekit/react-native-webrtc") as typeof RTC;
+    RTC = require("react-native-webrtc") as typeof RTC;
   } catch { /* not available */ }
 }
 

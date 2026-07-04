@@ -12,7 +12,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { colors, spacing, radius } from "@/lib/theme";
 import { SymbolView } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
-import { LiveStreamStage } from "@/components/LiveStreamStage";
 import { useLivestreamHost } from "@/lib/useLivestreamHost";
 import { safeBack } from "@/lib/navigation";
 import * as Haptics from "expo-haptics";
@@ -63,28 +62,13 @@ export default function GoLiveScreen() {
     livestreamId && showViewers ? { livestreamId } : "skip",
   );
 
-  const isLive = !!livestreamId;
-
-  // Group livestreams run over LiveKit (SFU, up to 4 publishers).
-  // Non-group personal streams keep the existing P2P WebRTC path.
-  const isGroupStream = !!(groupId || stream?.groupId);
-  const liveKitActive = isLive && isGroupStream;
-
   const {
     localStreamUrl, remoteStreamUrl,
     isMuted, isVideoOff, isFrontCamera, isSwitchingCamera,
     toggleMute, toggleVideo, flipCamera, cleanup, isSupported, RTCView,
-  } = useLivestreamHost({
-    livestreamId: liveKitActive ? null : livestreamId,
-    enabled: !!livestreamId && !liveKitActive,
-    enablePreview: !liveKitActive,
-    isCoHost,
-  });
+  } = useLivestreamHost({ livestreamId, enabled: !!livestreamId, enablePreview: true, isCoHost });
 
-  // Release the P2P preview camera once LiveKit takes over publishing
-  useEffect(() => {
-    if (liveKitActive) cleanup();
-  }, [liveKitActive, cleanup]);
+  const isLive = !!livestreamId;
 
   // Auto-join as participant if entering as cohost
   useEffect(() => {
@@ -274,10 +258,8 @@ export default function GoLiveScreen() {
 
   return (
     <View style={styles.fullScreen}>
-      {/* Video area: LiveKit grid (group streams), 50/50 split or solo (P2P) */}
-      {liveKitActive && livestreamId ? (
-        <LiveStreamStage livestreamId={livestreamId} isStreamer />
-      ) : hasRemotePeer ? (
+      {/* Video area: 50/50 split or solo */}
+      {hasRemotePeer ? (
         <View style={styles.splitContainer}>
           {/* Top half: local camera (yourself) */}
           <View style={styles.splitHalf}>
@@ -365,17 +347,12 @@ export default function GoLiveScreen() {
               <SymbolView name="eye" size={12} tintColor={colors.white} />
               <Text style={styles.viewerBadgeText}>{stream?.viewerCount ?? 0}</Text>
             </TouchableOpacity>
-            {stream && liveKitActive ? (
-              <View style={styles.participantBadge}>
-                <SymbolView name="person.2.fill" size={12} tintColor={colors.white} />
-                <Text style={styles.viewerBadgeText}>{stream.streamerCount}/4</Text>
-              </View>
-            ) : stream && stream.participantCount > 0 ? (
+            {stream && stream.participantCount > 0 && (
               <View style={styles.participantBadge}>
                 <SymbolView name="person.fill" size={12} tintColor={colors.white} />
                 <Text style={styles.viewerBadgeText}>{stream.participantCount}</Text>
               </View>
-            ) : null}
+            )}
             <View style={{ flex: 1 }} />
             <TouchableOpacity style={styles.endBtn} onPress={handleEndStream} activeOpacity={0.8}>
               <Text style={styles.endBtnText}>{isCoHost ? "Verlassen" : "Beenden"}</Text>
@@ -465,28 +442,26 @@ export default function GoLiveScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Controls (P2P path only — LiveKit publishes camera + mic directly) */}
-          {!liveKitActive && (
-            <View style={styles.controlRow}>
-              <TouchableOpacity style={styles.controlBtn} onPress={toggleMute}>
-                <SymbolView
-                  name={isMuted ? "mic.slash.fill" : "mic.fill"}
-                  size={20}
-                  tintColor={colors.white}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.controlBtn} onPress={toggleVideo}>
-                <SymbolView
-                  name={isVideoOff ? "video.slash.fill" : "video.fill"}
-                  size={20}
-                  tintColor={colors.white}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.controlBtn} onPress={flipCamera}>
-                <SymbolView name="camera.rotate" size={20} tintColor={colors.white} />
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Controls */}
+          <View style={styles.controlRow}>
+            <TouchableOpacity style={styles.controlBtn} onPress={toggleMute}>
+              <SymbolView
+                name={isMuted ? "mic.slash.fill" : "mic.fill"}
+                size={20}
+                tintColor={colors.white}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlBtn} onPress={toggleVideo}>
+              <SymbolView
+                name={isVideoOff ? "video.slash.fill" : "video.fill"}
+                size={20}
+                tintColor={colors.white}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlBtn} onPress={flipCamera}>
+              <SymbolView name="camera.rotate" size={20} tintColor={colors.white} />
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 

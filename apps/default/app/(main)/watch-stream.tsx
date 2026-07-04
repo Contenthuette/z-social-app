@@ -5,16 +5,14 @@ import {
   Modal, Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { colors, spacing, radius } from "@/lib/theme";
 import { SymbolView } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
-import { LiveStreamStage } from "@/components/LiveStreamStage";
 import { useLivestreamViewer } from "@/lib/useLivestreamViewer";
-import { useLivestreamPip } from "@/lib/livestream-pip-context";
 import { safeBack } from "@/lib/navigation";
 import * as Haptics from "expo-haptics";
 import { setSpeakerOn, forceSpeakerWithRetries } from "@/lib/audioRouting";
@@ -23,26 +21,28 @@ import Animated, {
   Easing, FadeIn, FadeInUp,
 } from "react-native-reanimated";
 
+// Two-person (co-host) livestreaming is temporarily disabled — solo streaming only.
+// Flip to true to re-enable the "join livestream" request once multi-host (SFU) is ready.
+const ALLOW_COHOST_JOIN = false;
+
 export default function WatchStreamScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const livestreamId = id as Id<"livestreams"> | undefined;
   const [commentText, setCommentText] = useState("");
   const [hasJoined, setHasJoined] = useState(false);
-  const [isTogglingStreamer, setIsTogglingStreamer] = useState(false);
-  // Optimistic flag: set right after joinAsStreamer so the LiveKit token is
-  // re-fetched with the publish grant without waiting for the query roundtrip.
-  const [publishRequested, setPublishRequested] = useState(false);
+  const [isJoiningCall, setIsJoiningCall] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
   const commentsRef = useRef<FlatList>(null);
 
   const joinStream = useMutation(api.livestreams.joinStream);
   const leaveStream = useMutation(api.livestreams.leaveStream);
-  const joinAsStreamer = useMutation(api.livestreams.joinAsStreamer);
-  const leaveAsStreamer = useMutation(api.livestreams.leaveAsStreamer);
+  const requestJoin = useMutation(api.livestreams.requestJoin);
   const sendComment = useMutation(api.livestreams.sendComment);
 
-  const me = useQuery(api.users.me);
-  const { minimizeLivestream, closeLivestreamPip } = useLivestreamPip();
+  const myJoinStatus = useQuery(
+    api.livestreams.getMyJoinRequestStatus,
+    livestreamId ? { livestreamId } : "skip",
+  );
 
   const stream = useQuery(
     api.livestreams.getById,
@@ -57,23 +57,29 @@ export default function WatchStreamScreen() {
     livestreamId && showViewers ? { livestreamId } : "skip",
   );
 
-  // Group livestreams run over LiveKit (SFU, up to 4 publishers).
-  // Non-group personal streams keep the existing P2P viewer path.
-  const isGroupStream = !!stream?.groupId;
-
   const { remoteStreamUrl, connectionState, cleanup, RTCView } =
     useLivestreamViewer({
       livestreamId: livestreamId ?? null,
       hostId: stream?.hostId ?? null,
-      enabled: !!livestreamId && !!stream && stream.status === "live" && !isGroupStream,
+      enabled: !!livestreamId && !!stream && stream.status === "live",
     });
 
   // Derived state (must be before any conditional returns for hooks below)
-  const myUserId = me?._id;
-  const amIStreamer = !!(myUserId && stream?.streamerIds?.includes(myUserId));
-  const isStreamer = amIStreamer || publishRequested;
-  const streamerCount = stream?.streamerCount ?? 1;
-  const canJoinAsStreamer = isGroupStream && !isStreamer && streamerCount < 4;
+  const canJoinCall = (stream?.participantCount ?? 0) < 2;
+  const joinRequested = myJoinStatus === "pending";
+  const joinAccepted = myJoinStatus === "accepted";
+
+  // Navigate to go-live when request is accepted
+  useEffect(() => {
+    if (joinAccepted && livestreamId) {
+      leaveStream({ livestreamId }).catch(() => {});
+      cleanup();
+      router.replace({
+        pathname: "/(main)/go-live",
+        params: { livestreamId, mode: "cohost" },
+      });
+    }
+  }, [joinAccepted, livestreamId, leaveStream, cleanup]);
 
   // Pulsing LIVE dot
   const pulseOpacity = useSharedValue(1);
@@ -115,34 +121,10 @@ export default function WatchStreamScreen() {
 
   const handleClose = useCallback(() => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (livestreamId) {
-      if (isStreamer) leaveAsStreamer({ livestreamId }).catch(() => {});
-      leaveStream({ livestreamId }).catch(() => {});
-    }
-    // Real exit: also discard any pending PiP state for this stream
-    closeLivestreamPip();
+    if (livestreamId) leaveStream({ livestreamId }).catch(() => {});
     cleanup();
     safeBack("watch-stream");
-  }, [livestreamId, leaveStream, leaveAsStreamer, isStreamer, cleanup, closeLivestreamPip]);
-
-  /**
-   * Minimize into the floating PiP window. Deliberately does NOT call
-   * leaveStream — the user keeps watching as a viewer; the global
-   * MinimizedLivestreamWindow re-mounts the LiveKit stage right after this
-   * screen unmounts (route no longer matches), so only one connection is
-   * ever active. A publishing co-streamer is dropped back to viewer first,
-   * because the PiP window is watch-only.
-   */
-  const handleMinimize = useCallback(() => {
-    if (!livestreamId) return;
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (isStreamer) {
-      leaveAsStreamer({ livestreamId }).catch(() => {});
-      setPublishRequested(false);
-    }
-    minimizeLivestream(livestreamId);
-    safeBack("watch-stream");
-  }, [livestreamId, isStreamer, leaveAsStreamer, minimizeLivestream]);
+  }, [livestreamId, leaveStream, cleanup]);
 
   const handleSendComment = useCallback(async () => {
     if (!livestreamId || !commentText.trim()) return;
@@ -152,39 +134,30 @@ export default function WatchStreamScreen() {
     } catch { /* rate limited */ }
   }, [livestreamId, commentText, sendComment]);
 
-  /** Viewer → co-streamer: grab a publisher slot, then re-fetch the LiveKit token with publish grant */
-  const handleJoinAsStreamer = useCallback(async () => {
+  const handleJoinCall = useCallback(async () => {
     if (!livestreamId) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setIsTogglingStreamer(true);
+    setIsJoiningCall(true);
     try {
-      await joinAsStreamer({ livestreamId });
-      setPublishRequested(true);
-    } catch (e) {
-      if (Platform.OS !== "web") {
-        Alert.alert(
-          "Nicht möglich",
-          e instanceof Error && e.message.includes("Maximal 4 Streamer")
-            ? "Es sind bereits 4 Personen live. Warte, bis ein Platz frei wird."
-            : "Du kannst gerade nicht mitstreamen.",
-        );
+      const result = await requestJoin({ livestreamId });
+      if (result === "full") {
+        if (Platform.OS !== "web") {
+          Alert.alert(
+            "Livestream voll",
+            "Mehr als 2 Personen live sind derzeit nicht möglich.",
+          );
+        }
+        setIsJoiningCall(false);
+      } else if (result === "already_requested") {
+        setIsJoiningCall(false);
+      } else {
+        // Request sent! Wait for host to accept
+        setIsJoiningCall(false);
       }
-    } finally {
-      setIsTogglingStreamer(false);
+    } catch {
+      setIsJoiningCall(false);
     }
-  }, [livestreamId, joinAsStreamer]);
-
-  /** Co-streamer → viewer */
-  const handleLeaveAsStreamer = useCallback(async () => {
-    if (!livestreamId) return;
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsTogglingStreamer(true);
-    try {
-      await leaveAsStreamer({ livestreamId });
-    } catch { /* stream may have ended */ }
-    setPublishRequested(false);
-    setIsTogglingStreamer(false);
-  }, [livestreamId, leaveAsStreamer]);
+  }, [livestreamId, requestJoin]);
 
   if (!livestreamId) return null;
 
@@ -219,10 +192,8 @@ export default function WatchStreamScreen() {
 
   return (
     <View style={styles.fullScreen}>
-      {/* Video: LiveKit grid (group streams) or P2P remote video */}
-      {isGroupStream ? (
-        <LiveStreamStage livestreamId={livestreamId} isStreamer={isStreamer} />
-      ) : remoteStreamUrl && RTCView ? (
+      {/* Remote video */}
+      {remoteStreamUrl && RTCView ? (
         <RTCView
           streamURL={remoteStreamUrl}
           style={StyleSheet.absoluteFill}
@@ -252,8 +223,8 @@ export default function WatchStreamScreen() {
         </View>
       )}
 
-      {/* Participant overlay when 2 are live (P2P only) */}
-      {!isGroupStream && stream.participantCount === 2 && stream.coHostName && (
+      {/* Participant overlay when 2 are live */}
+      {stream.participantCount === 2 && stream.coHostName && (
         <View style={styles.participantOverlay}>
           <View style={styles.participantAvatarRow}>
             <Avatar uri={stream.hostAvatarUrl} name={stream.hostName} size={28} />
@@ -291,11 +262,6 @@ export default function WatchStreamScreen() {
               </View>
             )}
             <View style={{ flex: 1 }} />
-            {isGroupStream && (
-              <TouchableOpacity style={styles.closeBtn} onPress={handleMinimize}>
-                <SymbolView name="chevron.down" size={18} tintColor={colors.white} />
-              </TouchableOpacity>
-            )}
             <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
               <SymbolView name="xmark" size={18} tintColor={colors.white} />
             </TouchableOpacity>
@@ -315,40 +281,26 @@ export default function WatchStreamScreen() {
 
           <View style={{ flex: 1 }} />
 
-          {/* Co-streamer controls (LiveKit): join or leave as one of up to 4 streamers */}
-          {canJoinAsStreamer && (
+          {/* Join Call button — co-host feature temporarily disabled (solo streaming only) */}
+          {ALLOW_COHOST_JOIN && canJoinCall && (
             <Animated.View entering={FadeInUp.duration(300)} style={styles.joinCallContainer}>
               <TouchableOpacity
-                style={styles.joinCallBtn}
-                onPress={handleJoinAsStreamer}
-                disabled={isTogglingStreamer}
+                style={[styles.joinCallBtn, joinRequested && styles.joinCallBtnPending]}
+                onPress={handleJoinCall}
+                disabled={isJoiningCall || joinRequested}
                 activeOpacity={0.8}
               >
-                {isTogglingStreamer ? (
+                {isJoiningCall ? (
                   <ActivityIndicator color={colors.black} size="small" />
-                ) : (
+                ) : joinRequested ? (
                   <>
-                    <SymbolView name="video.fill" size={16} tintColor={colors.black} />
-                    <Text style={styles.joinCallText}>Mit live gehen ({streamerCount}/4)</Text>
+                    <SymbolView name="clock" size={16} tintColor={colors.gray500} />
+                    <Text style={styles.joinCallTextPending}>Anfrage gesendet</Text>
                   </>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-          {isStreamer && (
-            <Animated.View entering={FadeInUp.duration(300)} style={styles.joinCallContainer}>
-              <TouchableOpacity
-                style={[styles.joinCallBtn, styles.joinCallBtnPending]}
-                onPress={handleLeaveAsStreamer}
-                disabled={isTogglingStreamer}
-                activeOpacity={0.8}
-              >
-                {isTogglingStreamer ? (
-                  <ActivityIndicator color={colors.gray500} size="small" />
                 ) : (
                   <>
-                    <SymbolView name="video.slash.fill" size={16} tintColor={colors.gray500} />
-                    <Text style={styles.joinCallTextPending}>Nicht mehr streamen</Text>
+                    <SymbolView name="hand.raised.fill" size={16} tintColor={colors.black} />
+                    <Text style={styles.joinCallText}>Beitritt anfragen</Text>
                   </>
                 )}
               </TouchableOpacity>

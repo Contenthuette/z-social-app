@@ -1,13 +1,11 @@
 import { v } from "convex/values";
-import { query, internalMutation, internalQuery } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 import type { Id, Doc } from "./_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { rateLimiter, INPUT_LIMITS, validateStringLength, sanitizeText } from "./rateLimit";
 
 const MAX_PARTICIPANTS = 2;
-// LiveKit group streaming: host + up to 3 co-streamers publish into one room
-const MAX_STREAMERS = 4;
 const MAX_VIEWERS_PER_STREAM = 50;
 const COMMENTS_PAGE_SIZE = 40;
 const SIGNAL_FETCH_LIMIT = 100;
@@ -82,7 +80,6 @@ async function finalizeStream(
       coHostId: undefined,
       coHostName: undefined,
       coHostAvatarUrl: undefined,
-      streamerIds: undefined,
       participantCount: 0,
     });
   }
@@ -201,8 +198,6 @@ export const getById = query({
       coHostId: v.optional(v.id("users")),
       coHostName: v.optional(v.string()),
       coHostAvatarUrl: v.optional(v.string()),
-      streamerIds: v.optional(v.array(v.id("users"))),
-      streamerCount: v.number(),
       title: v.string(),
       status: v.union(v.literal("live"), v.literal("ended")),
       participantCount: v.number(),
@@ -226,8 +221,6 @@ export const getById = query({
       coHostId: stream.coHostId,
       coHostName: stream.coHostName,
       coHostAvatarUrl: stream.coHostAvatarUrl,
-      streamerIds: stream.streamerIds,
-      streamerCount: (stream.streamerIds ?? [stream.hostId]).length,
       title: stream.title,
       status: stream.status,
       participantCount: stream.participantCount,
@@ -251,8 +244,6 @@ export const getActiveForGroup = query({
       coHostId: v.optional(v.id("users")),
       coHostName: v.optional(v.string()),
       coHostAvatarUrl: v.optional(v.string()),
-      streamerIds: v.optional(v.array(v.id("users"))),
-      streamerCount: v.number(),
       title: v.string(),
       participantCount: v.number(),
       viewerCount: v.number(),
@@ -276,60 +267,10 @@ export const getActiveForGroup = query({
       coHostId: stream.coHostId,
       coHostName: stream.coHostName,
       coHostAvatarUrl: stream.coHostAvatarUrl,
-      streamerIds: stream.streamerIds,
-      streamerCount: (stream.streamerIds ?? [stream.hostId]).length,
       title: stream.title,
       participantCount: stream.participantCount,
       viewerCount: stream.viewerCount,
       startedAt: stream.startedAt,
-    };
-  },
-});
-
-/**
- * LiveKit access grant for a livestream room (called from the livekit node action).
- * Returns null when the stream isn't live or the user may not view it.
- */
-export const streamGrant = internalQuery({
-  args: {
-    authId: v.string(),
-    livestreamId: v.id("livestreams"),
-  },
-  returns: v.union(
-    v.object({
-      identity: v.string(),
-      name: v.string(),
-      roomName: v.string(),
-      canPublish: v.boolean(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    // auth subject may be "authId|sessionId" — keep only the authId part
-    const authId = args.authId.split("|")[0]?.trim();
-    if (!authId) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
-      .unique();
-    if (!user) return null;
-
-    const stream = await ctx.db.get(args.livestreamId);
-    if (!stream || stream.status !== "live") return null;
-
-    // Private-group streams: only active members may join the room
-    if (!(await canViewGroupStream(ctx, stream.groupId, user._id))) return null;
-
-    const canPublish =
-      stream.hostId === user._id ||
-      (stream.streamerIds ?? []).includes(user._id);
-
-    return {
-      identity: String(user._id),
-      name: user.name,
-      roomName: String(args.livestreamId),
-      canPublish,
     };
   },
 });
@@ -469,7 +410,6 @@ export const goLive = authMutation({
       hostId: userId,
       hostName: user.name,
       hostAvatarUrl: user.avatarUrl,
-      streamerIds: [userId],
       title: args.title,
       status: "live",
       participantCount: 1,
@@ -557,56 +497,6 @@ export const leaveAsParticipant = authMutation({
       for (const s of sigs) await ctx.db.delete(s._id);
     }
 
-    return null;
-  },
-});
-
-/** Join a group livestream as a co-streamer (LiveKit, max 4 publishers) */
-export const joinAsStreamer = authMutation({
-  args: { livestreamId: v.id("livestreams") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const stream = await ctx.db.get(args.livestreamId);
-    if (!stream) throw new Error("Livestream not found");
-    if (stream.status !== "live") throw new Error("Dieser Livestream ist beendet.");
-
-    // Private-group streams: only active members may stream along
-    if (!(await canViewGroupStream(ctx, stream.groupId, userId))) {
-      throw new Error("Dieser Livestream ist nur für Gruppenmitglieder sichtbar.");
-    }
-
-    const streamers = stream.streamerIds ?? [stream.hostId];
-    if (streamers.includes(userId)) return null;
-    if (streamers.length >= MAX_STREAMERS) throw new Error("Maximal 4 Streamer");
-
-    await ctx.db.patch(args.livestreamId, {
-      streamerIds: [...streamers, userId],
-      participantCount: stream.participantCount + 1,
-      lastActivityAt: Date.now(),
-    });
-    return null;
-  },
-});
-
-/** Stop co-streaming (back to viewer). The host cannot leave — they end the stream. */
-export const leaveAsStreamer = authMutation({
-  args: { livestreamId: v.id("livestreams") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const stream = await ctx.db.get(args.livestreamId);
-    if (!stream || stream.status !== "live") return null;
-    if (stream.hostId === userId) return null; // host ends the stream instead
-
-    const streamers = stream.streamerIds ?? [stream.hostId];
-    if (!streamers.includes(userId)) return null;
-
-    await ctx.db.patch(args.livestreamId, {
-      streamerIds: streamers.filter((id) => id !== userId),
-      participantCount: Math.max(1, stream.participantCount - 1),
-      lastActivityAt: Date.now(),
-    });
     return null;
   },
 });
