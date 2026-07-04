@@ -17,6 +17,7 @@ import {
 } from "expo-camera";
 import { X, RefreshCcw } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { manipulateAsync, FlipType, SaveFormat } from "expo-image-manipulator";
 import type { ZettiMedia } from "@/components/ZettiEditor";
 
 interface ZettiCameraProps {
@@ -81,7 +82,21 @@ export function ZettiCamera({ visible, onClose, onCapture }: ZettiCameraProps) {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
       if (photo?.uri) {
         if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        onCapture({ uri: photo.uri, mimeType: "image/jpeg", isVideo: false });
+        // Front camera returns a mirrored image; flip it back so it matches reality.
+        let uri = photo.uri;
+        if (facing === "front") {
+          try {
+            const flipped = await manipulateAsync(
+              photo.uri,
+              [{ flip: FlipType.Horizontal }],
+              { compress: 0.9, format: SaveFormat.JPEG },
+            );
+            uri = flipped.uri;
+          } catch (e) {
+            console.error("Zetti un-mirror failed:", e);
+          }
+        }
+        onCapture({ uri, mimeType: "image/jpeg", isVideo: false });
       }
     } catch (err) {
       console.error("Zetti photo error:", err);

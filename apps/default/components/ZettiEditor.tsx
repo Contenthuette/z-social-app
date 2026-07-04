@@ -117,23 +117,24 @@ export function ZettiEditor({ visible, media, onCancel, onRetake, onSend }: Zett
           setContainerHeight(e.nativeEvent.layout.height);
         }}
       >
-        {media && isVideo ? (
-          <VideoView
-            player={player}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            nativeControls={false}
-          />
-        ) : media ? (
-          <Image
-            source={{ uri: media.uri }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-          />
-        ) : null}
-
-        {/* Tap anywhere (outside the text) closes the keyboard */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()} />
+        {/* Background media. Tapping it (outside the text) closes the keyboard.
+            It sits BELOW the caption so dragging the caption still works. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()}>
+          {media && isVideo ? (
+            <VideoView
+              player={player}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              nativeControls={false}
+            />
+          ) : media ? (
+            <Image
+              source={{ uri: media.uri }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+            />
+          ) : null}
+        </Pressable>
 
         {/* Draggable caption input */}
         <View
