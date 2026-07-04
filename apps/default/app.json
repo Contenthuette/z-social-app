@@ -17,6 +17,8 @@
       "bundleIdentifier": "com.zsocial.zsocial"
     },
     "android": {
+      "package": "com.z.social",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "../../assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
