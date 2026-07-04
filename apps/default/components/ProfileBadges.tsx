@@ -7,9 +7,9 @@ import { ZLogo } from "@/components/ZLogo";
 import type { Id } from "@/convex/_generated/dataModel";
 
 /* ── Z Admin Badge ─────────────────────────────── */
-export function ZAdminBadge() {
+export function ZAdminBadge({ centered = false }: { centered?: boolean }) {
   return (
-    <View style={styles.zBadge}>
+    <View style={[styles.zBadge, centered && styles.zBadgeCentered]}>
       <ZLogo size={18} />
       <Text style={styles.zText}>Admin</Text>
     </View>
@@ -128,6 +128,9 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     gap: 6,
     marginTop: 4,
+  },
+  zBadgeCentered: {
+    alignSelf: "center",
   },
   zText: {
     fontSize: 13,

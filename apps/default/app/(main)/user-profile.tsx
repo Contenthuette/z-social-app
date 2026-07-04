@@ -373,7 +373,7 @@ export default function UserProfileScreen() {
         {/* User Info */}
         <View style={styles.infoSection}>
           <Text style={styles.displayName}>{user.name || "Unbekannt"}</Text>
-          {user.role === "admin" && <ZAdminBadge />}
+          {user.role === "admin" && <ZAdminBadge centered />}
           {userGroups && userGroups.length > 0 && <GroupAdminLinks groups={userGroups} />}
           <View style={styles.locationAndMemberContainer}>
             <LocationBadge city={user.city} county={user.county} />
