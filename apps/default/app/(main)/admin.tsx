@@ -277,6 +277,7 @@ export default function AdminDashboard() {
 
   /* ── Nutzer ── */
   const users = useQuery(api.admin.listUsers, isAuthenticated ? {} : "skip");
+  const liveMemberCount = useQuery(api.admin.liveMemberCount, isAuthenticated ? {} : "skip");
   const deleteUserMut = useMutation(api.admin.deleteUserAdmin);
   const [userSearch, setUserSearch] = useState("");
   const [deletingUserId, setDeletingUserId] = useState<Id<"users"> | null>(null);
@@ -654,7 +655,7 @@ export default function AdminDashboard() {
           <KPI
             icon="person.2.fill"
             label="Mitglieder"
-            value={stats.totalMembers}
+            value={liveMemberCount ?? stats.totalMembers}
             sub={`+${stats.newMembersWeek} diese Woche`}
             iconBg={colors.black}
           />
@@ -1160,7 +1161,10 @@ export default function AdminDashboard() {
                   </TouchableOpacity>
                 )}
               </View>
-              <Text style={styles.userCountLabel}>{users.length} Nutzer insgesamt</Text>
+              <Text style={styles.userCountLabel}>
+                {liveMemberCount ?? users.length} Nutzer insgesamt
+                {users.length >= 500 ? ` (${users.length} angezeigt)` : ""}
+              </Text>
               {users
                 .filter((u: AdminUser) => {
                   if (!userSearch.trim()) return true;

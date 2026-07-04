@@ -804,6 +804,20 @@ export const listUsers = authQuery({
   },
 });
 
+/**
+ * The single source of truth for "how many members are there right now".
+ * Counts the users table live (not the daily snapshot, not the capped list),
+ * so the admin dashboard always shows one correct, current number.
+ */
+export const liveMemberCount = authQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await countResults(ctx.db.query("users"));
+  },
+});
+
 /* ─── reports ─────────────────────────────────────────────────── */
 export const listReports = authQuery({
   args: { status: v.optional(v.string()) },
