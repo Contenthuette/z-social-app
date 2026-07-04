@@ -37,6 +37,8 @@ function previewForMessage(message: Doc<"messages">): string {
     case "voice": return "🎙 Sprachmemo";
     case "post_share": return "Beitrag";
     case "profile_share": return "Profil";
+    // A zetti's caption is secret — never leak it into previews
+    case "zetti": return "Zetti";
     default: return "Nachricht";
   }
 }
@@ -82,10 +84,13 @@ const messageReturnValidator = v.object({
     v.literal("voice"),
     v.literal("post_share"),
     v.literal("profile_share"),
+    v.literal("zetti"),
   ),
   text: v.optional(v.string()),
   mediaUrl: v.optional(v.string()),
   mediaDuration: v.optional(v.number()),
+  zettiTextY: v.optional(v.number()),
+  zettiViewedByMe: v.optional(v.boolean()),
   sharedPostId: v.optional(v.id("posts")),
   sharedPostPreview: sharedPostPreviewValidator,
   sharedProfileId: v.optional(v.id("users")),
@@ -198,6 +203,24 @@ async function enrichMessagesOptimized(
     });
   }
 
+  // View-once tracking: has *this* user already viewed each zetti?
+  const zettiMessages = messages.filter((message) => message.type === "zetti");
+  const viewedZettiIds = new Set<string>();
+  if (zettiMessages.length > 0 && myUserId !== null) {
+    const viewerId = myUserId;
+    await Promise.all(
+      zettiMessages.map(async (message) => {
+        const view = await ctx.db
+          .query("zettiViews")
+          .withIndex("by_message_and_user", (q) =>
+            q.eq("messageId", message._id).eq("userId", viewerId),
+          )
+          .unique();
+        if (view) viewedZettiIds.add(message._id);
+      }),
+    );
+  }
+
   return messages.map((message) => {
     const sender = senderCache.get(message.senderId);
     return {
@@ -211,6 +234,9 @@ async function enrichMessagesOptimized(
         ? (urlCache.get(message.mediaStorageId) ?? undefined)
         : message.mediaUrl,
       mediaDuration: message.mediaDuration,
+      zettiTextY: message.zettiTextY,
+      zettiViewedByMe:
+        message.type === "zetti" ? viewedZettiIds.has(message._id) : undefined,
       sharedPostId: message.sharedPostId,
       sharedPostPreview: previewMap.get(message._id),
       sharedProfileId: message.sharedProfileId,
@@ -337,12 +363,14 @@ export const listConversations = authQuery({
         otherUserName: otherUser?.name,
         otherUserAvatarUrl: getUserAvatarUrl(otherUser, avatarUrls),
         lastMessage:
-          lastMessage?.text ??
-          (lastMessage?.type === "image"
-            ? "\uD83D\uDDBC Foto"
-            : lastMessage?.type === "voice"
-              ? "\uD83C\uDF99 Sprachmemo"
-              : undefined),
+          lastMessage?.type === "zetti"
+            ? "Zetti"
+            : (lastMessage?.text ??
+              (lastMessage?.type === "image"
+                ? "\uD83D\uDDBC Foto"
+                : lastMessage?.type === "voice"
+                  ? "\uD83C\uDF99 Sprachmemo"
+                  : undefined)),
         lastMessageAt: conversation.lastMessageAt,
         unreadCount: unreadCounts[index],
         isPinned: s?.isPinned === true,
@@ -760,9 +788,11 @@ export const sendGroupMessage = authMutation({
       v.literal("image"),
       v.literal("video"),
       v.literal("voice"),
+      v.literal("zetti"),
     ),
     mediaStorageId: v.optional(v.id("_storage")),
     mediaDuration: v.optional(v.number()),
+    zettiTextY: v.optional(v.number()),
     replyToId: v.optional(v.id("messages")),
   },
   returns: v.id("messages"),
@@ -795,6 +825,7 @@ export const sendGroupMessage = authMutation({
       text: args.text,
       mediaStorageId: args.mediaStorageId,
       mediaDuration: args.mediaDuration,
+      zettiTextY: args.type === "zetti" ? args.zettiTextY : undefined,
       ...reply,
       createdAt,
     });
@@ -814,6 +845,7 @@ export const sendGroupMessage = authMutation({
       : args.type === "image" ? "📷 Foto"
       : args.type === "voice" ? "🎙 Sprachmemo"
       : args.type === "video" ? "🎥 Video"
+      : args.type === "zetti" ? "hat ein Zetti gesendet" // caption stays secret
       : "Neue Nachricht";
     const senderName = me?.name ?? "Jemand";
     const groupName = group?.name ?? "Gruppe";
@@ -924,9 +956,11 @@ export const sendDirectMessage = authMutation({
       v.literal("image"),
       v.literal("video"),
       v.literal("voice"),
+      v.literal("zetti"),
     ),
     mediaStorageId: v.optional(v.id("_storage")),
     mediaDuration: v.optional(v.number()),
+    zettiTextY: v.optional(v.number()),
     replyToId: v.optional(v.id("messages")),
   },
   returns: v.id("messages"),
@@ -956,6 +990,7 @@ export const sendDirectMessage = authMutation({
       text: args.text,
       mediaStorageId: args.mediaStorageId,
       mediaDuration: args.mediaDuration,
+      zettiTextY: args.type === "zetti" ? args.zettiTextY : undefined,
       ...reply,
       createdAt,
     });
@@ -969,6 +1004,7 @@ export const sendDirectMessage = authMutation({
         : args.type === "image" ? "📷 Foto"
         : args.type === "voice" ? "🎙 Sprachmemo"
         : args.type === "video" ? "🎥 Video"
+        : args.type === "zetti" ? "Hat ein Zetti gesendet" // caption stays secret
         : "Neue Nachricht";
       await ctx.scheduler.runAfter(0, internal.pushNotifications.sendToUser, {
         userId: otherUserId,
@@ -979,6 +1015,36 @@ export const sendDirectMessage = authMutation({
       });
     }
     return messageId;
+  },
+});
+
+// Mark a Zetti as viewed by me (idempotent). Every user — including the
+// sender — gets exactly one view; once a zettiViews row exists the client
+// permanently renders the "angesehen" pill and never shows the media again.
+export const markZettiViewed = authMutation({
+  args: { messageId: v.id("messages") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) throw new Error("User not found");
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message || message.type !== "zetti") return null;
+
+    const existing = await ctx.db
+      .query("zettiViews")
+      .withIndex("by_message_and_user", (q) =>
+        q.eq("messageId", args.messageId).eq("userId", myUserId),
+      )
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("zettiViews", {
+        messageId: args.messageId,
+        userId: myUserId,
+        viewedAt: Date.now(),
+      });
+    }
+    return null;
   },
 });
 

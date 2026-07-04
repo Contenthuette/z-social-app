@@ -46,6 +46,7 @@ export default function GroupDetailScreen() {
   const deleteGroupMut = useMutation(api.groups.deleteGroup);
   const leaveGroupMut = useMutation(api.groups.leave);
   const kickMemberMut = useMutation(api.groups.kickMember);
+  const banMemberMut = useMutation(api.groups.banMember);
   const initiateGroupCall = useMutation(api.calls.initiateGroupCall);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -75,6 +76,7 @@ export default function GroupDetailScreen() {
 
   const isMember = membership?.status === "active";
   const isPending = membership?.status === "pending";
+  const isBanned = membership?.status === "banned";
   const isAdmin = membership?.role === "admin";
   const isCreator = me && group ? group.creatorId === me._id : false;
   const isRequestGroup = group.visibility === "request" || group.visibility === "invite_only";
@@ -138,6 +140,26 @@ export default function GroupDetailScreen() {
       [
         { text: "Abbrechen", style: "cancel" },
         { text: "Entfernen", style: "destructive", onPress: () => { void doKick(); } },
+      ],
+    );
+  };
+
+  const handleBan = (userId: Id<"users">, name: string) => {
+    const doBan = async () => {
+      try {
+        await banMemberMut({ groupId: id as Id<"groups">, userId });
+        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      } catch {
+        if (Platform.OS !== "web") Alert.alert("Fehler", "Mitglied konnte nicht gebannt werden.");
+      }
+    };
+    if (Platform.OS === "web") { void doBan(); return; }
+    Alert.alert(
+      "Mitglied bannen",
+      `${name} dauerhaft aus der Gruppe bannen? Diese Person kann nie wieder beitreten.`,
+      [
+        { text: "Abbrechen", style: "cancel" },
+        { text: "Bannen", style: "destructive", onPress: () => { void doBan(); } },
       ],
     );
   };
@@ -287,6 +309,11 @@ export default function GroupDetailScreen() {
                 <SymbolView name="clock" size={16} tintColor={colors.gray600} />
                 <Text style={styles.pendingBtnText}>Anfrage gesendet</Text>
               </View>
+            ) : isBanned ? (
+              <View style={styles.bannedBtn}>
+                <SymbolView name="nosign" size={16} tintColor={colors.gray500} />
+                <Text style={styles.bannedBtnText}>Gebannt</Text>
+              </View>
             ) : (
               <TouchableOpacity style={styles.primaryBtn} onPress={handleJoin} activeOpacity={0.7}>
                 <SymbolView name={isRequestGroup ? "envelope" : "plus"} size={16} tintColor={colors.white} />
@@ -398,14 +425,24 @@ export default function GroupDetailScreen() {
                     </Text>
                   </View>
                   {(isAdmin || isCreator) && m.userId !== me?._id && m.userId !== group.creatorId ? (
-                    <TouchableOpacity
-                      onPress={() => handleKick(m.userId, m.name)}
-                      hitSlop={10}
-                      style={styles.kickBtn}
-                      activeOpacity={0.6}
-                    >
-                      <SymbolView name="person.badge.minus" size={18} tintColor={colors.danger} />
-                    </TouchableOpacity>
+                    <View style={styles.memberActions}>
+                      <TouchableOpacity
+                        onPress={() => handleKick(m.userId, m.name)}
+                        hitSlop={10}
+                        style={styles.kickBtn}
+                        activeOpacity={0.6}
+                      >
+                        <SymbolView name="person.badge.minus" size={18} tintColor={colors.danger} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleBan(m.userId, m.name)}
+                        hitSlop={10}
+                        style={styles.banBtn}
+                        activeOpacity={0.6}
+                      >
+                        <SymbolView name="nosign" size={18} tintColor={colors.danger} />
+                      </TouchableOpacity>
+                    </View>
                   ) : (
                     <SymbolView name="chevron.right" size={13} tintColor={colors.gray300} />
                   )}
@@ -628,6 +665,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(239,68,68,0.08)",
   },
+  memberActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  banBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(239,68,68,0.08)",
+  },
+  bannedBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    opacity: 0.8,
+  },
+  bannedBtnText: { fontSize: 15, fontWeight: "600", color: colors.gray500 },
   pendingBtn: {
     flex: 1,
     flexDirection: "row",

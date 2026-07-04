@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authMutation } from "./functions";
+import { authMutation, authQuery } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { rateLimiter, INPUT_LIMITS, validateStringLength, sanitizeText } from "./rateLimit";
 
@@ -32,5 +32,30 @@ export const create = authMutation({
       createdAt: Date.now(),
     });
     return null;
+  },
+});
+
+/**
+ * Safe post-auth ban gate: returns true if the CURRENT authenticated
+ * user's email is on the bannedEmails list. Checked client-side in the
+ * top-level auth provider to block banned users from using the app.
+ */
+export const amIBanned = authQuery({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const authId = ctx.user._id;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .unique();
+    if (!user) return false;
+    const email = user.email.toLowerCase().trim();
+    if (!email) return false;
+    const banned = await ctx.db
+      .query("bannedEmails")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    return banned !== null;
   },
 });

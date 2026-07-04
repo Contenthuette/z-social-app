@@ -97,13 +97,22 @@ export default defineSchema({
     groupId: v.id("groups"),
     userId: v.id("users"),
     role: v.union(v.literal("admin"), v.literal("member")),
-    status: v.union(v.literal("active"), v.literal("pending")),
+    status: v.union(v.literal("active"), v.literal("pending"), v.literal("banned")),
     joinedAt: v.number(),
   })
     .index("by_groupId", ["groupId"])
     .index("by_userId", ["userId"])
     .index("by_groupId_and_userId", ["groupId", "userId"])
     .index("by_groupId_and_status_and_role", ["groupId", "status", "role"]),
+
+  // ── Personal group pins (per-user, max 3, separate from admin pins) ──
+  groupPins: defineTable({
+    userId: v.id("users"),
+    groupId: v.id("groups"),
+    pinnedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_groupId", ["userId", "groupId"]),
 
   // ── Messages (group + DM) ──────────────────────────────────────
   conversations: defineTable({
@@ -121,11 +130,13 @@ export default defineSchema({
   messages: defineTable({
     conversationId: v.id("conversations"),
     senderId: v.id("users"),
-    type: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("voice"), v.literal("post_share"), v.literal("profile_share")),
+    type: v.union(v.literal("text"), v.literal("image"), v.literal("video"), v.literal("voice"), v.literal("post_share"), v.literal("profile_share"), v.literal("zetti")),
     text: v.optional(v.string()),
     mediaStorageId: v.optional(v.id("_storage")),
     mediaUrl: v.optional(v.string()),
     mediaDuration: v.optional(v.number()),
+    // Zetti: vertical position (0..1) of the caption overlay
+    zettiTextY: v.optional(v.number()),
     sharedPostId: v.optional(v.id("posts")),
     sharedProfileId: v.optional(v.id("users")),
     reactions: v.optional(v.array(v.object({ userId: v.id("users"), emoji: v.string() }))),
@@ -137,6 +148,14 @@ export default defineSchema({
     .index("by_conversationId", ["conversationId"])
     .index("by_conversationId_and_createdAt", ["conversationId", "createdAt"])
     .index("by_senderId", ["senderId"]),
+
+  // ── Zetti Views (view-once tracking, per user incl. sender) ────
+  zettiViews: defineTable({
+    messageId: v.id("messages"),
+    userId: v.id("users"),
+    viewedAt: v.number(),
+  })
+    .index("by_message_and_user", ["messageId", "userId"]),
 
   // ── Conversation Read Status ───────────────────────────────────
   conversationReadStatus: defineTable({
@@ -403,6 +422,15 @@ export default defineSchema({
     .index("by_reporterId_and_targetId", ["reporterId", "targetId"])
     .index("by_reporterId", ["reporterId"])
     .index("by_createdAt", ["createdAt"]),
+
+  // ── Banned Emails (permanent account bans by email) ────────────
+  bannedEmails: defineTable({
+    email: v.string(), // stored lowercased + trimmed
+    reason: v.optional(v.string()),
+    bannedAt: v.number(),
+    bannedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_email", ["email"]),
 
   blockedUsers: defineTable({
     blockerId: v.id("users"),

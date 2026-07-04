@@ -11,12 +11,19 @@ declare module "expo-image-picker" {
       duration?: number;
     }>;
   }
+  export enum CameraType {
+    back = "back",
+    front = "front",
+  }
   export interface ImagePickerOptions {
     mediaTypes?: MediaType[];
     allowsEditing?: boolean;
     quality?: number;
     aspect?: [number, number];
+    cameraType?: CameraType;
   }
   export function launchImageLibraryAsync(options?: ImagePickerOptions): Promise<ImagePickerResult>;
+  export function launchCameraAsync(options?: ImagePickerOptions): Promise<ImagePickerResult>;
   export function requestMediaLibraryPermissionsAsync(): Promise<{ status: string }>;
+  export function requestCameraPermissionsAsync(): Promise<{ status: string; granted: boolean }>;
 }

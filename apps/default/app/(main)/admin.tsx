@@ -36,8 +36,20 @@ interface AdminReport {
   status: "pending" | "reviewed" | "resolved";
   postCaption?: string;
   postAuthorName: string;
+  postAuthorId?: Id<"users">;
   postMediaUrl?: string;
   postType: "photo" | "video";
+  createdAt: number;
+}
+
+interface AdminUserReport {
+  _id: Id<"reports">;
+  reporterName: string;
+  reportedUserId: Id<"users"> | null;
+  reportedUserName: string;
+  reportedUserEmail: string;
+  reason: string;
+  status: "pending" | "reviewed" | "resolved";
   createdAt: number;
 }
 
@@ -286,6 +298,31 @@ export default function AdminDashboard() {
   /* ── Reports ── */
   const reports = useQuery(api.posts.listReports, isAuthenticated ? {} : "skip");
   const resolveReport = useMutation(api.posts.resolveReport);
+  const userReports = useQuery(api.admin.listUserReports, isAuthenticated ? {} : "skip");
+  const resolveUserReport = useMutation(api.admin.resolveReport);
+  const banUserByEmail = useMutation(api.admin.banUserByEmail);
+
+  const handleBanUser = useCallback(
+    (userId: Id<"users">) => {
+      Alert.alert(
+        "Account bannen?",
+        "Diesen Account per E-Mail dauerhaft bannen? Der Nutzer kann sich nie wieder anmelden.",
+        [
+          { text: "Abbrechen", style: "cancel" },
+          {
+            text: "Bannen",
+            style: "destructive",
+            onPress: () => {
+              banUserByEmail({ userId }).catch(() => {
+                Alert.alert("Fehler", "Der Account konnte nicht gebannt werden.");
+              });
+            },
+          },
+        ],
+      );
+    },
+    [banUserByEmail],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -659,47 +696,111 @@ export default function AdminDashboard() {
               <Text style={styles.emptyReportsText}>Keine offenen Meldungen</Text>
             </View>
           ) : (
-            reports.map((r: AdminReport) => (
-              <View key={r._id} style={styles.reportCard}>
-                <View style={styles.reportCardHeader}>
-                  <Text style={styles.reportCardAuthor}>{r.postAuthorName}</Text>
-                  <Text style={styles.reportCardType}>{r.postType === "video" ? "Video" : "Foto"}</Text>
+            reports.map((r: AdminReport) => {
+              const reportedAuthorId = r.postAuthorId;
+              return (
+                <View key={r._id} style={styles.reportCard}>
+                  <View style={styles.reportCardHeader}>
+                    <Text style={styles.reportCardAuthor}>{r.postAuthorName}</Text>
+                    <Text style={styles.reportCardType}>{r.postType === "video" ? "Video" : "Foto"}</Text>
+                  </View>
+                  {r.postCaption ? (
+                    <Text style={styles.reportCardCaption} numberOfLines={2}>{r.postCaption}</Text>
+                  ) : null}
+                  <View style={styles.reportCardReason}>
+                    <SymbolView name="flag.fill" size={12} tintColor={"#FF3B30"} />
+                    <Text style={styles.reportCardReasonText}>{r.reason}</Text>
+                  </View>
+                  <Text style={styles.reportCardReporter}>Gemeldet von: {r.reporterName}</Text>
+                  <View style={styles.reportCardActions}>
+                    <TouchableOpacity
+                      style={styles.reportDismissBtn}
+                      onPress={() => resolveReport({ reportId: r._id, action: "dismiss" })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.reportDismissText}>Ablehnen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.reportRemoveBtn}
+                      onPress={() => {
+                        Alert.alert(
+                          "Beitrag loeschen?",
+                          "Der Beitrag wird unwiderruflich geloescht.",
+                          [
+                            { text: "Abbrechen", style: "cancel" },
+                            { text: "Loeschen", style: "destructive", onPress: () => resolveReport({ reportId: r._id, action: "remove" }) },
+                          ],
+                        );
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.reportRemoveText}>Loeschen</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {reportedAuthorId ? (
+                    <TouchableOpacity
+                      style={styles.reportBanBtn}
+                      onPress={() => handleBanUser(reportedAuthorId)}
+                      activeOpacity={0.7}
+                    >
+                      <SymbolView name="nosign" size={13} tintColor={colors.white} />
+                      <Text style={styles.reportBanText}>Account bannen</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
-                {r.postCaption ? (
-                  <Text style={styles.reportCardCaption} numberOfLines={2}>{r.postCaption}</Text>
-                ) : null}
-                <View style={styles.reportCardReason}>
-                  <SymbolView name="flag.fill" size={12} tintColor={"#FF3B30"} />
-                  <Text style={styles.reportCardReasonText}>{r.reason}</Text>
+              );
+            })
+          )}
+        </Card>
+
+        {/* ── Gemeldete Profile ───────────────────── */}
+        <Card title="Gemeldete Profile" icon="flag.fill">
+          {userReports === undefined ? (
+            <ActivityIndicator color={colors.gray300} />
+          ) : userReports.length === 0 ? (
+            <View style={styles.emptyReports}>
+              <SymbolView name="checkmark.shield" size={24} tintColor={colors.gray300} />
+              <Text style={styles.emptyReportsText}>Keine offenen Meldungen</Text>
+            </View>
+          ) : (
+            userReports.map((r: AdminUserReport) => {
+              const reportedUserId = r.reportedUserId;
+              return (
+                <View key={r._id} style={styles.reportCard}>
+                  <View style={styles.reportCardHeader}>
+                    <Text style={styles.reportCardAuthor}>{r.reportedUserName}</Text>
+                    <Text style={styles.reportCardType}>Profil</Text>
+                  </View>
+                  {r.reportedUserEmail ? (
+                    <Text style={styles.reportCardCaption} numberOfLines={1}>{r.reportedUserEmail}</Text>
+                  ) : null}
+                  <View style={styles.reportCardReason}>
+                    <SymbolView name="flag.fill" size={12} tintColor={"#FF3B30"} />
+                    <Text style={styles.reportCardReasonText}>{r.reason}</Text>
+                  </View>
+                  <Text style={styles.reportCardReporter}>Gemeldet von: {r.reporterName}</Text>
+                  <View style={styles.reportCardActions}>
+                    <TouchableOpacity
+                      style={styles.reportDismissBtn}
+                      onPress={() => resolveUserReport({ reportId: r._id, status: "reviewed" })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.reportDismissText}>Ablehnen</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {reportedUserId ? (
+                    <TouchableOpacity
+                      style={styles.reportBanBtn}
+                      onPress={() => handleBanUser(reportedUserId)}
+                      activeOpacity={0.7}
+                    >
+                      <SymbolView name="nosign" size={13} tintColor={colors.white} />
+                      <Text style={styles.reportBanText}>Account bannen</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
-                <Text style={styles.reportCardReporter}>Gemeldet von: {r.reporterName}</Text>
-                <View style={styles.reportCardActions}>
-                  <TouchableOpacity
-                    style={styles.reportDismissBtn}
-                    onPress={() => resolveReport({ reportId: r._id, action: "dismiss" })}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.reportDismissText}>Ablehnen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.reportRemoveBtn}
-                    onPress={() => {
-                      Alert.alert(
-                        "Beitrag loeschen?",
-                        "Der Beitrag wird unwiderruflich geloescht.",
-                        [
-                          { text: "Abbrechen", style: "cancel" },
-                          { text: "Loeschen", style: "destructive", onPress: () => resolveReport({ reportId: r._id, action: "remove" }) },
-                        ],
-                      );
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.reportRemoveText}>Loeschen</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              );
+            })
           )}
         </Card>
 
@@ -1751,6 +1852,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   reportRemoveText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.white,
+  },
+  reportBanBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.danger,
+    marginTop: 4,
+  },
+  reportBanText: {
     fontSize: 14,
     fontWeight: "600",
     color: colors.white,

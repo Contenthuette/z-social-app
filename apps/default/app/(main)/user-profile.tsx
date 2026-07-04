@@ -28,6 +28,7 @@ import {
   MoreHorizontal,
   ShieldBan,
   Share2,
+  Flag,
 } from "lucide-react-native";
 import { VideoGridThumbnail } from "@/components/VideoGridThumbnail";
 import { ZAdminBadge, GroupAdminLinks, LocationBadge } from "@/components/ProfileBadges";
@@ -49,6 +50,7 @@ export default function UserProfileScreen() {
   const [friendLoading, setFriendLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [avatarViewer, setAvatarViewer] = useState(false);
 
@@ -66,6 +68,7 @@ export default function UserProfileScreen() {
   const sendFriendRequest = useMutation(api.friends.sendRequest);
   const acceptFriendRequest = useMutation(api.friends.acceptRequest);
   const blockUser = useMutation(api.users.blockUser);
+  const createReport = useMutation(api.reports.create);
 
   const handleFriendAction = useCallback(async () => {
     if (!userId || friendLoading) return;
@@ -132,6 +135,52 @@ export default function UserProfileScreen() {
       ],
     );
   }, [userId, blockLoading, user?.name, blockUser]);
+
+  const handleReport = useCallback(async () => {
+    if (!userId || reportLoading) return;
+    setMenuOpen(false);
+
+    const submitReport = async () => {
+      setReportLoading(true);
+      try {
+        if (Platform.OS !== "web")
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await createReport({
+          type: "user",
+          targetId: userId,
+          reason: "Unangemessenes Profil",
+        });
+        if (Platform.OS === "web") return;
+        Alert.alert(
+          "Danke, wir prüfen das.",
+          "Möchtest du die Person auch blockieren?",
+          [
+            { text: "Nein", style: "cancel" },
+            { text: "Blockieren", style: "destructive", onPress: handleBlock },
+          ],
+        );
+      } catch (e: unknown) {
+        console.error("Report error:", e);
+        if (Platform.OS !== "web")
+          Alert.alert("Fehler", "Meldung konnte nicht gesendet werden.");
+      } finally {
+        setReportLoading(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      await submitReport();
+      return;
+    }
+    Alert.alert(
+      "Profil melden",
+      `${user?.name ?? "Dieses Profil"} melden? Unser Team prüft die Meldung.`,
+      [
+        { text: "Abbrechen", style: "cancel" },
+        { text: "Melden", style: "destructive", onPress: () => void submitReport() },
+      ],
+    );
+  }, [userId, reportLoading, user?.name, createReport, handleBlock]);
 
   if (user === undefined) {
     return (
@@ -244,6 +293,14 @@ export default function UserProfileScreen() {
             >
               <ShieldBan size={20} color="#EF4444" />
               <Text style={styles.menuItemTextDanger}>Blockieren</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleReport}
+              activeOpacity={0.6}
+            >
+              <Flag size={20} color="#EF4444" />
+              <Text style={styles.menuItemTextDanger}>Melden</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuCancel}

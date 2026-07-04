@@ -6,6 +6,8 @@ import { ConvexReactClient } from "convex/react";
 import { registerGlobals } from "@livekit/react-native";
 import { ConvexAuthProvider } from "@/lib/ConvexAuthProvider";
 import { SoundProvider } from "@/lib/sounds";
+import { BanGate } from "@/components/BanGate";
+import { LivestreamPipProvider } from "@/components/LivestreamPipProvider";
 
 // Register LiveKit's WebRTC globals once at startup, before anything uses WebRTC.
 // (Native only — the browser already provides WebRTC globals on web.)
@@ -24,17 +26,21 @@ export default function RootLayout() {
   return (
     <ConvexAuthProvider client={convex}>
       <SoundProvider>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: "slide_from_right",
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(main)" />
-        </Stack>
+        <BanGate>
+          <StatusBar style="dark" />
+          <LivestreamPipProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: "slide_from_right",
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(main)" />
+            </Stack>
+          </LivestreamPipProvider>
+        </BanGate>
       </SoundProvider>
     </ConvexAuthProvider>
   );

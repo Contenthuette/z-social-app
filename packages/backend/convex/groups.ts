@@ -36,6 +36,7 @@ export const list = authQuery({
       visibility: v.union(v.literal("public"), v.literal("invite_only"), v.literal("request")),
       memberCount: v.number(),
       isMember: v.boolean(),
+      isBanned: v.boolean(),
       createdAt: v.number(),
     }),
   ),
@@ -92,6 +93,7 @@ export const list = authQuery({
               visibility: group.visibility,
               memberCount: group.memberCount,
               isMember: membership?.status === "active",
+              isBanned: membership?.status === "banned",
               createdAt: group.createdAt,
             };
           }),
@@ -115,6 +117,7 @@ export const listPinned = authQuery({
       visibility: v.union(v.literal("public"), v.literal("invite_only"), v.literal("request")),
       memberCount: v.number(),
       isMember: v.boolean(),
+      isBanned: v.boolean(),
     }),
   ),
   handler: async (ctx) => {
@@ -150,6 +153,7 @@ export const listPinned = authQuery({
             visibility: group.visibility,
             memberCount: group.memberCount,
             isMember: membership?.status === "active",
+            isBanned: membership?.status === "banned",
           };
         }),
     );
@@ -255,6 +259,9 @@ export const join = authMutation({
     const existing = await ctx.db.query("groupMembers")
       .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", myUserId))
       .unique();
+    if (existing?.status === "banned") {
+      throw new Error("Du wurdest aus dieser Gruppe gebannt und kannst nicht mehr beitreten.");
+    }
     if (existing) return null;
     const group = await ctx.db.get(args.groupId);
     if (!group) throw new Error("Group not found");
@@ -426,10 +433,108 @@ export const leave = authMutation({
       .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", myUserId))
       .unique();
     if (!membership) return null;
+    // Banned memberships must persist so the user cannot rejoin.
+    if (membership.status === "banned") return null;
     await ctx.db.delete(membership._id);
     const group = await ctx.db.get(args.groupId);
     if (group && group.memberCount > 0) {
       await ctx.db.patch(args.groupId, { memberCount: group.memberCount - 1 });
+    }
+    return null;
+  },
+});
+
+// ── Personal group pins (per-user, max 3 — separate from admin pins) ──
+
+/** The current user's personally pinned groupIds, newest pin first. */
+export const myPinnedGroupIds = authQuery({
+  args: {},
+  returns: v.array(v.id("groups")),
+  handler: async (ctx) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) return [];
+    const pins = await ctx.db
+      .query("groupPins")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    return pins
+      .sort((a, b) => b.pinnedAt - a.pinnedAt)
+      .map((p) => p.groupId);
+  },
+});
+
+/** Pin/unpin a group for the current user only (max 3 pins). */
+export const togglePersonalPin = authMutation({
+  args: { groupId: v.id("groups") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) throw new Error("User not found");
+    const existing = await ctx.db
+      .query("groupPins")
+      .withIndex("by_userId_and_groupId", (q) =>
+        q.eq("userId", myUserId).eq("groupId", args.groupId),
+      )
+      .unique();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      return null;
+    }
+    const myPins = await ctx.db
+      .query("groupPins")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    if (myPins.length >= 3) {
+      throw new Error("Du kannst maximal 3 Gruppen anpinnen.");
+    }
+    await ctx.db.insert("groupPins", {
+      userId: myUserId,
+      groupId: args.groupId,
+      pinnedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+// Permanently ban a member from the group (group creator or admin only)
+export const banMember = authMutation({
+  args: { groupId: v.id("groups"), userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) throw new Error("User not found");
+
+    const group = await ctx.db.get(args.groupId);
+    if (!group) throw new Error("Gruppe nicht gefunden");
+
+    const myMembership = await ctx.db.query("groupMembers")
+      .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", myUserId))
+      .unique();
+    const isCreator = group.creatorId === myUserId;
+    if (!isCreator && (!myMembership || myMembership.role !== "admin")) {
+      throw new Error("Nur Gruppen-Admins können Mitglieder bannen");
+    }
+    if (args.userId === myUserId) throw new Error("Du kannst dich nicht selbst bannen");
+    if (args.userId === group.creatorId) throw new Error("Der Ersteller kann nicht gebannt werden");
+
+    const membership = await ctx.db.query("groupMembers")
+      .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", args.userId))
+      .unique();
+    if (membership) {
+      if (membership.status === "banned") return null;
+      const wasActive = membership.status === "active";
+      await ctx.db.patch(membership._id, { status: "banned" as const, role: "member" as const });
+      if (wasActive && group.memberCount > 0) {
+        await ctx.db.patch(args.groupId, { memberCount: group.memberCount - 1 });
+      }
+    } else {
+      await ctx.db.insert("groupMembers", {
+        groupId: args.groupId,
+        userId: args.userId,
+        role: "member",
+        status: "banned",
+        joinedAt: Date.now(),
+      });
     }
     return null;
   },
@@ -460,6 +565,8 @@ export const kickMember = authMutation({
       .withIndex("by_groupId_and_userId", q => q.eq("groupId", args.groupId).eq("userId", args.userId))
       .unique();
     if (!membership) return null;
+    // Kicking must not lift a permanent ban.
+    if (membership.status === "banned") return null;
 
     const wasActive = membership.status === "active";
     await ctx.db.delete(membership._id);
@@ -489,7 +596,7 @@ export const getMembers = query({
     name: v.string(),
     avatarUrl: v.optional(v.string()),
     role: v.union(v.literal("admin"), v.literal("member")),
-    status: v.union(v.literal("active"), v.literal("pending")),
+    status: v.union(v.literal("active"), v.literal("pending"), v.literal("banned")),
   })),
   handler: async (ctx, args) => {
     const members = await ctx.db.query("groupMembers")
@@ -561,7 +668,7 @@ export const getMyMembership = authQuery({
   returns: v.union(v.null(), v.object({
     _id: v.id("groupMembers"),
     role: v.union(v.literal("admin"), v.literal("member")),
-    status: v.union(v.literal("active"), v.literal("pending")),
+    status: v.union(v.literal("active"), v.literal("pending"), v.literal("banned")),
   })),
   handler: async (ctx, args) => {
     const myUserId = await getMyUserId(ctx);

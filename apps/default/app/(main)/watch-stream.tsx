@@ -14,6 +14,7 @@ import { SymbolView } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
 import { LiveStreamStage } from "@/components/LiveStreamStage";
 import { useLivestreamViewer } from "@/lib/useLivestreamViewer";
+import { useLivestreamPip } from "@/lib/livestream-pip-context";
 import { safeBack } from "@/lib/navigation";
 import * as Haptics from "expo-haptics";
 import { setSpeakerOn, forceSpeakerWithRetries } from "@/lib/audioRouting";
@@ -41,6 +42,7 @@ export default function WatchStreamScreen() {
   const sendComment = useMutation(api.livestreams.sendComment);
 
   const me = useQuery(api.users.me);
+  const { minimizeLivestream, closeLivestreamPip } = useLivestreamPip();
 
   const stream = useQuery(
     api.livestreams.getById,
@@ -117,9 +119,30 @@ export default function WatchStreamScreen() {
       if (isStreamer) leaveAsStreamer({ livestreamId }).catch(() => {});
       leaveStream({ livestreamId }).catch(() => {});
     }
+    // Real exit: also discard any pending PiP state for this stream
+    closeLivestreamPip();
     cleanup();
     safeBack("watch-stream");
-  }, [livestreamId, leaveStream, leaveAsStreamer, isStreamer, cleanup]);
+  }, [livestreamId, leaveStream, leaveAsStreamer, isStreamer, cleanup, closeLivestreamPip]);
+
+  /**
+   * Minimize into the floating PiP window. Deliberately does NOT call
+   * leaveStream — the user keeps watching as a viewer; the global
+   * MinimizedLivestreamWindow re-mounts the LiveKit stage right after this
+   * screen unmounts (route no longer matches), so only one connection is
+   * ever active. A publishing co-streamer is dropped back to viewer first,
+   * because the PiP window is watch-only.
+   */
+  const handleMinimize = useCallback(() => {
+    if (!livestreamId) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isStreamer) {
+      leaveAsStreamer({ livestreamId }).catch(() => {});
+      setPublishRequested(false);
+    }
+    minimizeLivestream(livestreamId);
+    safeBack("watch-stream");
+  }, [livestreamId, isStreamer, leaveAsStreamer, minimizeLivestream]);
 
   const handleSendComment = useCallback(async () => {
     if (!livestreamId || !commentText.trim()) return;
@@ -268,6 +291,11 @@ export default function WatchStreamScreen() {
               </View>
             )}
             <View style={{ flex: 1 }} />
+            {isGroupStream && (
+              <TouchableOpacity style={styles.closeBtn} onPress={handleMinimize}>
+                <SymbolView name="chevron.down" size={18} tintColor={colors.white} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
               <SymbolView name="xmark" size={18} tintColor={colors.white} />
             </TouchableOpacity>

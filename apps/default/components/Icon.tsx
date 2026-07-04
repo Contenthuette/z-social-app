@@ -275,6 +275,11 @@ const iconMap: Record<string, React.FC<LucideProps>> = {
 
   // Calendar
   "calendar.badge.plus": CalendarPlus,
+
+  // Previously-unmapped (rendered as broken "?") — now mapped
+  "person.crop.circle.badge.xmark": UserMinus,
+  "arrow.down.doc": FileText,
+  "party.popper": Sparkles,
 };
 
 interface SymbolViewProps {

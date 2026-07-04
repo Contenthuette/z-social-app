@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Pressable, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
@@ -17,6 +17,7 @@ import { SharedPostBubble } from "@/components/SharedPostBubble";
 import { SharedProfileBubble } from "@/components/SharedProfileBubble";
 import { VoiceMessageBubble } from "@/components/VoiceMessageBubble";
 import { MediaMessageBubble } from "@/components/MediaMessageBubble";
+import { ZettiViewer } from "@/components/ZettiViewer";
 import { Avatar } from "@/components/Avatar";
 import * as Haptics from "expo-haptics";
 
@@ -54,6 +55,7 @@ export default function ChatScreen() {
   const deleteMessage = useMutation(api.messaging.deleteMessage);
   const toggleReaction = useMutation(api.messaging.toggleReaction);
   const generateUploadUrl = useMutation(api.messaging.generateUploadUrl);
+  const markZettiViewed = useMutation(api.messaging.markZettiViewed);
   const markAsRead = useMutation(api.messaging.markConversationAsRead);
   const me = useQuery(api.users.me, isAuthenticated ? undefined : "skip");
   const partner = useQuery(api.calls.getConversationPartner, isAuthenticated && conversationId ? { conversationId } : "skip");
@@ -62,6 +64,7 @@ export default function ChatScreen() {
   type Msg = NonNullable<typeof messages>[number];
   const [actionTarget, setActionTarget] = useState<Msg | null>(null);
   const [replyingTo, setReplyingTo] = useState<ReplyTarget | null>(null);
+  const [viewingZetti, setViewingZetti] = useState<Msg | null>(null);
 
   const previewFor = (m: Msg): string =>
     m.type === "text" ? (m.text ?? "")
@@ -70,6 +73,7 @@ export default function ChatScreen() {
     : m.type === "voice" ? "🎙 Sprachmemo"
     : m.type === "post_share" ? "Beitrag"
     : m.type === "profile_share" ? "Profil"
+    : m.type === "zetti" ? "Zetti"
     : "Nachricht";
 
   const handleReact = useCallback((messageId: Id<"messages">, emoji: string) => {
@@ -182,6 +186,48 @@ export default function ChatScreen() {
     }
   }, [conversationId, generateUploadUrl, sendMessage]);
 
+  const handleSendZetti = useCallback(async (
+    media: { uri: string; mimeType: string },
+    caption: string,
+    textY: number,
+  ) => {
+    if (!conversationId) return;
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(media.uri);
+      const blob = await response.blob();
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": media.mimeType },
+        body: blob,
+      });
+      const { storageId } = await uploadResponse.json() as { storageId: Id<"_storage"> };
+      await sendMessage({
+        conversationId,
+        type: "zetti",
+        mediaStorageId: storageId,
+        text: caption.trim() || undefined,
+        zettiTextY: textY,
+      });
+    } catch (err) {
+      console.error("Failed to send Zetti", err);
+      if (Platform.OS !== "web") {
+        Alert.alert("Fehler", "Zetti konnte nicht gesendet werden.");
+      }
+    }
+  }, [conversationId, generateUploadUrl, sendMessage]);
+
+  // Closing the viewer burns the one and only view (per user, incl. sender)
+  const handleCloseZettiViewer = useCallback(() => {
+    const target = viewingZetti;
+    setViewingZetti(null);
+    if (target) {
+      markZettiViewed({ messageId: target._id }).catch((e) =>
+        console.error("Failed to mark Zetti viewed", e),
+      );
+    }
+  }, [viewingZetti, markZettiViewed]);
+
   const renderMessage = ({ item }: { item: Msg }) => {
     const isMine = item.senderId === me?._id;
     const timeStr = new Date(item.createdAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
@@ -190,7 +236,25 @@ export default function ChatScreen() {
     );
 
     let content: React.ReactNode;
-    if (item.type === "post_share" && item.sharedPostId) {
+    if (item.type === "zetti") {
+      content = item.zettiViewedByMe ? (
+        <View style={[styles.zettiPill, styles.zettiPillViewed]}>
+          <SymbolView name="eye" size={13} tintColor={colors.gray400} />
+          <Text style={styles.zettiPillTextViewed}>
+            Zetti von {item.senderName} angesehen
+          </Text>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setViewingZetti(item)}
+          style={({ pressed }) => [styles.zettiPill, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.zettiPillText}>
+            Z Member {item.senderName} hat ein Zetti gesendet
+          </Text>
+        </Pressable>
+      );
+    } else if (item.type === "post_share" && item.sharedPostId) {
       content = (
         <SharedPostBubble
           postId={item.sharedPostId}
@@ -313,11 +377,20 @@ export default function ChatScreen() {
           onSend={handleSend}
           onSendVoice={handleSendVoice}
           onSendMedia={handleSendMedia}
+          onSendZetti={handleSendZetti}
           bottomInset={insets.bottom}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
         />
       </KeyboardAvoidingView>
+
+      <ZettiViewer
+        visible={!!viewingZetti}
+        mediaUrl={viewingZetti?.mediaUrl}
+        caption={viewingZetti?.text}
+        textY={viewingZetti?.zettiTextY}
+        onClose={handleCloseZettiViewer}
+      />
 
       <MessageActionSheet
         visible={!!actionTarget}
@@ -350,4 +423,16 @@ const styles = StyleSheet.create({
   msgTextMine: { color: colors.white },
   timestamp: { fontSize: 11, color: colors.gray400, marginTop: spacing.xs, alignSelf: "flex-end" },
   timestampMine: { color: "rgba(255,255,255,0.6)" },
+  zettiPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.gray100,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+  },
+  zettiPillViewed: { backgroundColor: colors.gray50 },
+  zettiPillText: { fontSize: 13, fontWeight: "600", color: colors.gray700 },
+  zettiPillTextViewed: { fontSize: 13, color: colors.gray400 },
 });

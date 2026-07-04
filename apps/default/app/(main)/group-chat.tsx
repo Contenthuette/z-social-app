@@ -11,7 +11,7 @@ import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { colors, spacing } from "@/lib/theme";
+import { colors, spacing, radius } from "@/lib/theme";
 import { safeBack } from "@/lib/navigation";
 import { Avatar } from "@/components/Avatar";
 import { SymbolView } from "@/components/Icon";
@@ -21,6 +21,7 @@ import { MessageActionSheet, ReactionBadges, QuotedReply } from "@/components/Me
 import { SharedPostBubble } from "@/components/SharedPostBubble";
 import { VoiceMessageBubble } from "@/components/VoiceMessageBubble";
 import { MediaMessageBubble } from "@/components/MediaMessageBubble";
+import { ZettiViewer } from "@/components/ZettiViewer";
 
 export default function GroupChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,6 +50,7 @@ export default function GroupChatScreen() {
   );
   const sendMessage = useMutation(api.messaging.sendGroupMessage);
   const generateUploadUrl = useMutation(api.messaging.generateUploadUrl);
+  const markZettiViewed = useMutation(api.messaging.markZettiViewed);
   const toggleReaction = useMutation(api.messaging.toggleReaction);
   const deleteMessage = useMutation(api.messaging.deleteMessage);
   const me = useQuery(api.users.me, isAuthenticated ? undefined : "skip");
@@ -57,6 +59,7 @@ export default function GroupChatScreen() {
   type Msg = NonNullable<typeof messages>[number];
   const [actionTarget, setActionTarget] = useState<Msg | null>(null);
   const [replyingTo, setReplyingTo] = useState<ReplyTarget | null>(null);
+  const [viewingZetti, setViewingZetti] = useState<Msg | null>(null);
 
   const previewFor = (m: Msg): string =>
     m.type === "text" ? (m.text ?? "")
@@ -64,6 +67,7 @@ export default function GroupChatScreen() {
     : m.type === "video" ? "🎥 Video"
     : m.type === "voice" ? "🎙 Sprachmemo"
     : m.type === "post_share" ? "Beitrag"
+    : m.type === "zetti" ? "Zetti"
     : "Nachricht";
 
   const handleLongPressMessage = useCallback((item: Msg) => {
@@ -143,6 +147,48 @@ export default function GroupChatScreen() {
     }
   }, [id, generateUploadUrl, sendMessage]);
 
+  const handleSendZetti = useCallback(async (
+    media: { uri: string; mimeType: string },
+    caption: string,
+    textY: number,
+  ) => {
+    if (!id) return;
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(media.uri);
+      const blob = await response.blob();
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": media.mimeType },
+        body: blob,
+      });
+      const { storageId } = await uploadResponse.json() as { storageId: Id<"_storage"> };
+      await sendMessage({
+        groupId: id as Id<"groups">,
+        type: "zetti",
+        mediaStorageId: storageId,
+        text: caption.trim() || undefined,
+        zettiTextY: textY,
+      });
+    } catch (err) {
+      console.error("Failed to send Zetti", err);
+      if (Platform.OS !== "web") {
+        Alert.alert("Fehler", "Zetti konnte nicht gesendet werden.");
+      }
+    }
+  }, [id, generateUploadUrl, sendMessage]);
+
+  // Closing the viewer burns the one and only view (per user, incl. sender)
+  const handleCloseZettiViewer = useCallback(() => {
+    const target = viewingZetti;
+    setViewingZetti(null);
+    if (target) {
+      markZettiViewed({ messageId: target._id }).catch((e) =>
+        console.error("Failed to mark Zetti viewed", e),
+      );
+    }
+  }, [viewingZetti, markZettiViewed]);
+
   const renderMessage = ({ item }: { item: Msg }) => {
     const isMine = item.senderId === me?._id;
     const timeStr = new Date(item.createdAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
@@ -161,7 +207,25 @@ export default function GroupChatScreen() {
     ) : null;
 
     let inner: React.ReactNode;
-    if (item.type === "post_share" && item.sharedPostId) {
+    if (item.type === "zetti") {
+      inner = item.zettiViewedByMe ? (
+        <View style={[styles.zettiPill, styles.zettiPillViewed]}>
+          <SymbolView name="eye" size={13} tintColor={colors.gray400} />
+          <Text style={styles.zettiPillTextViewed}>
+            Zetti von {item.senderName} angesehen
+          </Text>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setViewingZetti(item)}
+          style={({ pressed }) => [styles.zettiPill, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.zettiPillText}>
+            Z Member {item.senderName} hat ein Zetti gesendet
+          </Text>
+        </Pressable>
+      );
+    } else if (item.type === "post_share" && item.sharedPostId) {
       inner = (
         <SharedPostBubble
           postId={item.sharedPostId}
@@ -266,11 +330,20 @@ export default function GroupChatScreen() {
           onSend={handleSend}
           onSendVoice={handleSendVoice}
           onSendMedia={handleSendMedia}
+          onSendZetti={handleSendZetti}
           bottomInset={insets.bottom}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
         />
       </KeyboardAvoidingView>
+
+      <ZettiViewer
+        visible={!!viewingZetti}
+        mediaUrl={viewingZetti?.mediaUrl}
+        caption={viewingZetti?.text}
+        textY={viewingZetti?.zettiTextY}
+        onClose={handleCloseZettiViewer}
+      />
 
       <MessageActionSheet
         visible={!!actionTarget}
@@ -325,4 +398,16 @@ const styles = StyleSheet.create({
   msgTextMine: { color: colors.white },
   timestamp: { fontSize: 10, color: colors.gray400, marginTop: 4, alignSelf: "flex-end" },
   timestampMine: { color: "rgba(255,255,255,0.5)" },
+  zettiPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.gray100,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+  },
+  zettiPillViewed: { backgroundColor: colors.gray50 },
+  zettiPillText: { fontSize: 13, fontWeight: "600", color: colors.gray700 },
+  zettiPillTextViewed: { fontSize: 13, color: colors.gray400 },
 });

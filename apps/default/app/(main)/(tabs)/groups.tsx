@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, Platform, ScrollView,
+  TextInput, ActivityIndicator, Platform, ScrollView, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -103,6 +103,11 @@ export default function GroupsScreen() {
     api.groups.listPinned,
     isAuthenticated && tab === "groups" ? {} : "skip",
   );
+  // Personal pins (per-user, max 3) — separate from the admin "featured" pins above
+  const myPinnedGroupIds = useQuery(
+    api.groups.myPinnedGroupIds,
+    isAuthenticated && tab === "groups" ? {} : "skip",
+  );
   const groupUnread = useQuery(
     api.groups.myGroupUnread,
     isAuthenticated && tab === "groups" ? {} : "skip",
@@ -130,12 +135,31 @@ export default function GroupsScreen() {
     { initialNumItems: 16 },
   );
   const joinGroup = useMutation(api.groups.join);
+  const togglePersonalPin = useMutation(api.groups.togglePersonalPin);
 
   const handleJoin = async (groupId: Id<"groups">) => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await joinGroup({ groupId });
-    } catch { /* already member */ }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      if (message.includes("gebannt") && Platform.OS !== "web") {
+        Alert.alert("Beitritt nicht möglich", "Du wurdest aus dieser Gruppe gebannt und kannst nicht mehr beitreten.");
+      }
+      /* otherwise: already member */
+    }
+  };
+
+  const handleTogglePin = async (groupId: Id<"groups">) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await togglePersonalPin({ groupId });
+    } catch (e) {
+      const message = e instanceof Error && e.message.includes("maximal 3")
+        ? "Du kannst maximal 3 Gruppen anpinnen."
+        : "Anpinnen fehlgeschlagen.";
+      if (Platform.OS !== "web") Alert.alert("Anpinnen", message);
+    }
   };
 
   const switchTab = (t: Tab) => {
@@ -146,10 +170,15 @@ export default function GroupsScreen() {
     }
   };
 
+  const myPinnedIds = myPinnedGroupIds ?? [];
+  const myPinnedSet = new Set<string>(myPinnedIds);
+
   const renderGroup = ({ item }: { item: NonNullable<typeof groups>[number] }) => (
     <TouchableOpacity
       style={styles.card}
       onPress={() => router.navigate({ pathname: "/(main)/group-detail", params: { id: item._id } })}
+      onLongPress={() => { void handleTogglePin(item._id); }}
+      delayLongPress={350}
       activeOpacity={0.65}
     >
       <View style={styles.cardThumb}>
@@ -175,6 +204,9 @@ export default function GroupsScreen() {
       <View style={styles.cardBody}>
         <View style={styles.cardNameRow}>
           <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+          {myPinnedSet.has(item._id) && (
+            <SymbolView name="pin.fill" size={11} tintColor={colors.gray400} />
+          )}
           {liveGroupSet.has(item._id) && (
             <View style={styles.liveInlineBadge}>
               <View style={styles.liveInlineDot} />
@@ -192,6 +224,11 @@ export default function GroupsScreen() {
         <View style={styles.joinedPill}>
           <SymbolView name="checkmark" size={12} tintColor={colors.gray500} />
           <Text style={styles.joinedText}>Dabei</Text>
+        </View>
+      ) : item.isBanned ? (
+        <View style={styles.bannedPill}>
+          <SymbolView name="nosign" size={12} tintColor={colors.gray400} />
+          <Text style={styles.bannedText}>Gebannt</Text>
         </View>
       ) : (
         <TouchableOpacity
@@ -248,6 +285,11 @@ export default function GroupsScreen() {
           <SymbolView name="checkmark" size={12} tintColor={colors.gray400} />
           <Text style={styles.pinnedJoinedText}>Dabei</Text>
         </View>
+      ) : item.isBanned ? (
+        <View style={styles.pinnedJoinedPill}>
+          <SymbolView name="nosign" size={12} tintColor={colors.gray400} />
+          <Text style={styles.pinnedJoinedText}>Gebannt</Text>
+        </View>
       ) : (
         <TouchableOpacity style={styles.pinnedJoinPill} onPress={() => handleJoin(item._id)} activeOpacity={0.7}>
           <Text style={styles.pinnedJoinText}>Beitreten</Text>
@@ -288,8 +330,17 @@ export default function GroupsScreen() {
 
   const pinnedList = tab === "groups" && !searchQuery ? (pinnedGroups ?? []) : [];
   const pinnedIds = new Set(pinnedList.map((g) => g._id));
-  const visibleGroups = pinnedIds.size > 0
-    ? groups.filter((g) => !pinnedIds.has(g._id))
+
+  // Personal pins: only groups the user is a member of, ordered newest pin first
+  const personalPinnedList = tab === "groups" && !searchQuery
+    ? myPinnedIds
+        .map((gid) => groups.find((g) => g._id === gid && g.isMember))
+        .filter((g): g is NonNullable<typeof g> => g !== undefined)
+    : [];
+  const personalPinnedIds = new Set(personalPinnedList.map((g) => g._id));
+
+  const visibleGroups = pinnedIds.size > 0 || personalPinnedIds.size > 0
+    ? groups.filter((g) => !pinnedIds.has(g._id) && !personalPinnedIds.has(g._id))
     : groups;
 
   const listHeader = (
@@ -341,6 +392,19 @@ export default function GroupsScreen() {
       {pinnedList.length > 0 && (
         <View style={styles.pinnedSection}>
           {pinnedList.map(renderPinnedGroup)}
+        </View>
+      )}
+
+      {/* Persönlich angepinnte Gruppen (long-press zum An-/Abpinnen) */}
+      {personalPinnedList.length > 0 && (
+        <View style={styles.personalPinnedSection}>
+          <View style={styles.personalPinnedHeader}>
+            <SymbolView name="pin.fill" size={13} tintColor={colors.gray500} />
+            <Text style={styles.personalPinnedTitle}>Angepinnt</Text>
+          </View>
+          {personalPinnedList.map((item) => (
+            <React.Fragment key={item._id}>{renderGroup({ item })}</React.Fragment>
+          ))}
         </View>
       )}
     </>
@@ -703,6 +767,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   joinText: { fontSize: 13, fontWeight: "600", color: colors.white },
+  bannedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    backgroundColor: colors.gray100,
+    opacity: 0.7,
+  },
+  bannedText: { fontSize: 13, fontWeight: "600", color: colors.gray400 },
+
+  /* Persönlich angepinnte Gruppen */
+  personalPinnedSection: { marginBottom: spacing.sm },
+  personalPinnedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  personalPinnedTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.black,
+    letterSpacing: -0.2,
+  },
 
   /* Angepinnte Gruppen (schwarzes Widget) */
   pinnedSection: { marginBottom: spacing.sm },

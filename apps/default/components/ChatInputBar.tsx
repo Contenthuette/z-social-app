@@ -17,6 +17,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { SymbolView } from "@/components/Icon";
 import { useSound } from "@/lib/sounds";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { ZettiEditor, type ZettiMedia } from "@/components/ZettiEditor";
 
 // Error boundary to catch native module crashes
 interface ErrorBoundaryState {
@@ -101,6 +102,11 @@ interface ChatInputBarProps {
   onSend: (text: string) => void;
   onSendVoice?: (uri: string, durationMs: number) => void;
   onSendMedia?: (media: MediaPickResult) => Promise<void> | void;
+  onSendZetti?: (
+    media: { uri: string; mimeType: string },
+    caption: string,
+    textY: number,
+  ) => Promise<void> | void;
   onPlusPress?: () => void;
   placeholder?: string;
   bottomInset?: number;
@@ -112,6 +118,7 @@ export function ChatInputBar({
   onSend,
   onSendVoice,
   onSendMedia,
+  onSendZetti,
   onPlusPress,
   placeholder = "Nachricht...",
   bottomInset = 0,
@@ -123,6 +130,8 @@ export function ChatInputBar({
   const [isPickingMedia, setIsPickingMedia] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<MediaPickResult | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
+  const [zettiMedia, setZettiMedia] = useState<ZettiMedia | null>(null);
+  const [isLaunchingZettiCamera, setIsLaunchingZettiCamera] = useState(false);
   const { playSound } = useSound();
   const { width: screenWidth } = useWindowDimensions();
 
@@ -207,6 +216,46 @@ export function ChatInputBar({
       setIsSendingMedia(false);
       dismissPreview();
     }
+  };
+
+  const handleZettiPress = async () => {
+    if (!onSendZetti || isLaunchingZettiCamera) return;
+    playSound("tap");
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    setIsLaunchingZettiCamera(true);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) return;
+
+      // Native camera, front-facing by default (user can flip via camera UI)
+      const result = await ImagePicker.launchCameraAsync({
+        cameraType: ImagePicker.CameraType.front,
+        quality: 0.8,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        setZettiMedia({
+          uri: asset.uri,
+          mimeType: asset.mimeType ?? "image/jpeg",
+        });
+      }
+    } catch (err) {
+      console.error("Zetti camera error:", err);
+    } finally {
+      setIsLaunchingZettiCamera(false);
+    }
+  };
+
+  const handleZettiSend = async (caption: string, textY: number) => {
+    if (!zettiMedia || !onSendZetti) return;
+    await onSendZetti(zettiMedia, caption, textY);
+    playSound("send");
+    setZettiMedia(null);
   };
 
   const handleVoiceSend = (uri: string, durationMs: number) => {
@@ -318,7 +367,36 @@ export function ChatInputBar({
               </Pressable>
             )
           )}
+
+          {/* Zetti button (view-once selfie), right of the mic button */}
+          {onSendZetti && (
+            <Pressable
+              onPress={handleZettiPress}
+              style={({ pressed }) => [
+                styles.iconBtn,
+                pressed && styles.btnPressed,
+              ]}
+              hitSlop={6}
+              disabled={isLaunchingZettiCamera}
+            >
+              {isLaunchingZettiCamera ? (
+                <ActivityIndicator size="small" color="#8E8E93" />
+              ) : (
+                <SymbolView name="camera.fill" size={18} tintColor="#8E8E93" />
+              )}
+            </Pressable>
+          )}
         </View>
+      )}
+
+      {/* Zetti editor (photo + draggable caption) */}
+      {onSendZetti && (
+        <ZettiEditor
+          visible={!!zettiMedia}
+          media={zettiMedia}
+          onCancel={() => setZettiMedia(null)}
+          onSend={handleZettiSend}
+        />
       )}
 
       {/* Media preview modal */}

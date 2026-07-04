@@ -865,6 +865,132 @@ export const resolveReport = authMutation({
   },
 });
 
+/* ─── Reported user profiles (from "Melden" on profiles) ──────── */
+export const listUserReports = authQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("reports"),
+      reporterName: v.string(),
+      reportedUserId: v.union(v.id("users"), v.null()),
+      reportedUserName: v.string(),
+      reportedUserEmail: v.string(),
+      reason: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("reviewed"),
+        v.literal("resolved"),
+      ),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const reports = await ctx.db
+      .query("reports")
+      .withIndex("by_type_and_status", (q) =>
+        q.eq("type", "user").eq("status", "pending"),
+      )
+      .order("desc")
+      .take(100);
+    return await Promise.all(
+      reports.map(async (r) => {
+        const reporter = await ctx.db.get(r.reporterId);
+        const targetId = ctx.db.normalizeId("users", r.targetId);
+        const target = targetId ? await ctx.db.get(targetId) : null;
+        return {
+          _id: r._id,
+          reporterName: reporter?.name ?? "Unbekannt",
+          reportedUserId: target?._id ?? null,
+          reportedUserName: target?.name ?? "Gelöscht",
+          reportedUserEmail: target?.email ?? "",
+          reason: r.reason,
+          status: r.status,
+          createdAt: r.createdAt,
+        };
+      }),
+    );
+  },
+});
+
+/* ─── Email bans ──────────────────────────────────────────────── */
+export const banUserByEmail = authMutation({
+  args: { userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("Nutzer nicht gefunden");
+    if (user.role === "admin") throw new Error("Admins können nicht gebannt werden");
+    const email = user.email.toLowerCase().trim();
+    if (!email) throw new Error("Nutzer hat keine E-Mail-Adresse");
+    const existing = await ctx.db
+      .query("bannedEmails")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("bannedEmails", {
+        email,
+        reason: "Communityverstoß (Admin-Ban)",
+        bannedAt: Date.now(),
+        bannedByUserId: admin._id,
+      });
+    }
+    // Resolve open user reports that target this user
+    const pendingUserReports = await ctx.db
+      .query("reports")
+      .withIndex("by_type_and_status", (q) =>
+        q.eq("type", "user").eq("status", "pending"),
+      )
+      .take(500);
+    for (const r of pendingUserReports) {
+      if (r.targetId === args.userId) {
+        await ctx.db.patch(r._id, { status: "resolved", resolvedAt: Date.now() });
+      }
+    }
+    return null;
+  },
+});
+
+export const unbanEmail = authMutation({
+  args: { email: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const email = args.email.toLowerCase().trim();
+    const existing = await ctx.db
+      .query("bannedEmails")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    }
+    return null;
+  },
+});
+
+export const listBannedEmails = authQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("bannedEmails"),
+      email: v.string(),
+      reason: v.optional(v.string()),
+      bannedAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db.query("bannedEmails").order("desc").take(500);
+    return rows.map((b) => ({
+      _id: b._id,
+      email: b.email,
+      reason: b.reason,
+      bannedAt: b.bannedAt,
+    }));
+  },
+});
+
 /* ─── partners ────────────────────────────────────────────────── */
 export const createPartner = authMutation({
   args: {
@@ -1275,7 +1401,7 @@ export const listGroupMembersAdmin = authQuery({
       email: v.string(),
       avatarUrl: v.optional(v.string()),
       role: v.union(v.literal("admin"), v.literal("member")),
-      status: v.union(v.literal("active"), v.literal("pending")),
+      status: v.union(v.literal("active"), v.literal("pending"), v.literal("banned")),
       joinedAt: v.number(),
     }),
   ),
