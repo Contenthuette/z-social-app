@@ -47,7 +47,6 @@ export default function GroupDetailScreen() {
   const leaveGroupMut = useMutation(api.groups.leave);
   const kickMemberMut = useMutation(api.groups.kickMember);
   const banMemberMut = useMutation(api.groups.banMember);
-  const initiateGroupCall = useMutation(api.calls.initiateGroupCall);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -174,16 +173,6 @@ export default function GroupDetailScreen() {
     try { await rejectRequest({ groupId: id as Id<"groups">, userId }); } catch { /* error */ }
   };
 
-  const startGroupCall = async (type: "audio" | "video") => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const callId = await initiateGroupCall({ groupId: id as Id<"groups">, type });
-      router.push({ pathname: "/(main)/group-call" as "/", params: { id: callId } });
-    } catch (e) {
-      Alert.alert("Anruf fehlgeschlagen", e instanceof Error ? e.message : "Fehler");
-    }
-  };
-
   const getVisibilityLabel = () => {
     if (group.visibility === "public") return "Öffentlich";
     return "Auf Anfrage";
@@ -280,30 +269,14 @@ export default function GroupDetailScreen() {
           {/* Actions */}
           <View style={styles.actionRow}>
             {isMember ? (
-              <>
-                <TouchableOpacity
-                  style={styles.primaryBtn}
-                  onPress={() => router.navigate({ pathname: "/(main)/group-chat", params: { id: id! } })}
-                  activeOpacity={0.7}
-                >
-                  <SymbolView name="bubble.left.and.bubble.right" size={16} tintColor={colors.white} />
-                  <Text style={styles.primaryBtnText}>Chat öffnen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={() => void startGroupCall("audio")}
-                  activeOpacity={0.7}
-                >
-                  <SymbolView name="phone.fill" size={18} tintColor={colors.black} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={() => void startGroupCall("video")}
-                  activeOpacity={0.7}
-                >
-                  <SymbolView name="video.fill" size={18} tintColor={colors.black} />
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => router.navigate({ pathname: "/(main)/group-chat", params: { id: id! } })}
+                activeOpacity={0.7}
+              >
+                <SymbolView name="bubble.left.and.bubble.right" size={16} tintColor={colors.white} />
+                <Text style={styles.primaryBtnText}>Chat öffnen</Text>
+              </TouchableOpacity>
             ) : isPending ? (
               <View style={styles.pendingBtn}>
                 <SymbolView name="clock" size={16} tintColor={colors.gray600} />

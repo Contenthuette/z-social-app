@@ -790,14 +790,17 @@ export const listUsers = authQuery({
   ),
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const users = await ctx.db.query("users").order("desc").take(500);
+    const users = await ctx.db.query("users").order("desc").collect();
+    const validStatuses = new Set(["none", "active", "canceled", "expired"]);
     return users.map((u) => ({
       _id: u._id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      subscriptionStatus: u.subscriptionStatus,
-      onboardingComplete: u.onboardingComplete,
+      name: u.name ?? "",
+      email: u.email ?? "",
+      role: u.role === "admin" ? ("admin" as const) : ("user" as const),
+      subscriptionStatus: validStatuses.has(u.subscriptionStatus)
+        ? u.subscriptionStatus
+        : ("none" as const),
+      onboardingComplete: !!u.onboardingComplete,
       createdAt: u.createdAt,
       lastActiveAt: u.lastActiveAt,
     }));
@@ -805,16 +808,24 @@ export const listUsers = authQuery({
 });
 
 /**
- * The single source of truth for "how many members are there right now".
- * Counts the users table live (not the daily snapshot, not the capped list),
- * so the admin dashboard always shows one correct, current number.
+ * The single source of truth for member counts, computed live from the users
+ * table (not the daily snapshot, not the capped list) so the admin dashboard
+ * always shows correct, current numbers. `newThisWeek` counts registrations in
+ * the last 7 days — never larger than `total`.
  */
-export const liveMemberCount = authQuery({
+export const liveMemberStats = authQuery({
   args: {},
-  returns: v.number(),
+  returns: v.object({ total: v.number(), newThisWeek: v.number() }),
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    return await countResults(ctx.db.query("users"));
+    const total = await countResults(ctx.db.query("users"));
+    const weekStart = Date.now() - WEEK;
+    const newThisWeek = await countResults(
+      ctx.db
+        .query("users")
+        .withIndex("by_createdAt", (q) => q.gte("createdAt", weekStart)),
+    );
+    return { total, newThisWeek };
   },
 });
 
