@@ -24,6 +24,7 @@
     "better-auth": "1.4.19",
     "convex": "1.32.0",
     "convex-helpers": "0.1.113",
+    "livekit-server-sdk": "^2.9.0",
     "stripe": "^21.0.1"
   },
   "devDependencies": {

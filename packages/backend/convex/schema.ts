@@ -508,6 +508,8 @@ export default defineSchema({
     coHostId: v.optional(v.id("users")),
     coHostName: v.optional(v.string()),
     coHostAvatarUrl: v.optional(v.string()),
+    // LiveKit group streaming: host + co-streamers (max 4) who may publish
+    streamerIds: v.optional(v.array(v.id("users"))),
     title: v.string(),
     status: v.union(v.literal("live"), v.literal("ended")),
     participantCount: v.number(),

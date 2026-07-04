@@ -25,6 +25,7 @@ import type * as friends from "../friends.js";
 import type * as functions from "../functions.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
+import type * as livekit from "../livekit.js";
 import type * as livestreams from "../livestreams.js";
 import type * as memberEvents from "../memberEvents.js";
 import type * as messaging from "../messaging.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   groups: typeof groups;
   http: typeof http;
+  livekit: typeof livekit;
   livestreams: typeof livestreams;
   memberEvents: typeof memberEvents;
   messaging: typeof messaging;
