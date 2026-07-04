@@ -8,7 +8,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CameraView,
   useCameraPermissions,
@@ -35,6 +35,7 @@ function fmt(sec: number): string {
 }
 
 export function ZettiCamera({ visible, onClose, onCapture }: ZettiCameraProps) {
+  const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>("front");
   const [mode, setMode] = useState<"picture" | "video">("picture");
@@ -177,7 +178,7 @@ export function ZettiCamera({ visible, onClose, onCapture }: ZettiCameraProps) {
             )}
 
             {/* Top bar */}
-            <SafeAreaView style={styles.topBar} pointerEvents="box-none">
+            <View style={[styles.topBar, { paddingTop: insets.top + 12 }]} pointerEvents="box-none">
               <Pressable onPress={onClose} hitSlop={10} style={styles.iconBtn}>
                 <X size={24} color="#FFFFFF" />
               </Pressable>
@@ -192,10 +193,13 @@ export function ZettiCamera({ visible, onClose, onCapture }: ZettiCameraProps) {
               <Pressable onPress={flip} hitSlop={10} style={styles.iconBtn} disabled={isRecording}>
                 <RefreshCcw size={24} color={isRecording ? "rgba(255,255,255,0.4)" : "#FFFFFF"} />
               </Pressable>
-            </SafeAreaView>
+            </View>
 
             {/* Bottom controls */}
-            <SafeAreaView style={styles.bottomBar} pointerEvents="box-none">
+            <View
+              style={[styles.bottomBar, { paddingBottom: insets.bottom + 24 }]}
+              pointerEvents="box-none"
+            >
               {/* Foto / Video toggle */}
               {!isRecording && (
                 <View style={styles.modeToggle}>
@@ -233,7 +237,7 @@ export function ZettiCamera({ visible, onClose, onCapture }: ZettiCameraProps) {
                     : "Zum Aufnehmen tippen"
                   : "Zum Fotografieren tippen"}
               </Text>
-            </SafeAreaView>
+            </View>
           </>
         )}
       </View>
