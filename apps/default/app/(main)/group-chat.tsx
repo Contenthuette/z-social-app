@@ -148,7 +148,7 @@ export default function GroupChatScreen() {
   }, [id, generateUploadUrl, sendMessage]);
 
   const handleSendZetti = useCallback(async (
-    media: { uri: string; mimeType: string },
+    media: { uri: string; mimeType: string; isVideo?: boolean; durationMs?: number },
     caption: string,
     textY: number,
   ) => {
@@ -169,6 +169,8 @@ export default function GroupChatScreen() {
         mediaStorageId: storageId,
         text: caption.trim() || undefined,
         zettiTextY: textY,
+        // Video Zettis carry a duration; the viewer uses it to play with sound.
+        mediaDuration: media.isVideo ? Math.max(1, media.durationMs ?? 0) : undefined,
       });
     } catch (err) {
       console.error("Failed to send Zetti", err);
@@ -340,6 +342,7 @@ export default function GroupChatScreen() {
       <ZettiViewer
         visible={!!viewingZetti}
         mediaUrl={viewingZetti?.mediaUrl}
+        isVideo={(viewingZetti?.mediaDuration ?? 0) > 0}
         caption={viewingZetti?.text}
         textY={viewingZetti?.zettiTextY}
         onClose={handleCloseZettiViewer}

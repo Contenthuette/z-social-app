@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet, Modal, Platform } from "react-native";
 import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
 
 // "Inter" with graceful fallback: on native, an unregistered font family
 // silently falls back to the system font; on web we chain sans-serif.
@@ -9,14 +10,22 @@ const INTER_FONT = Platform.select({ web: "Inter, sans-serif", default: "Inter" 
 interface ZettiViewerProps {
   visible: boolean;
   mediaUrl?: string;
+  isVideo?: boolean;
   caption?: string;
   textY?: number;
   onClose: () => void;
 }
 
-export function ZettiViewer({ visible, mediaUrl, caption, textY, onClose }: ZettiViewerProps) {
+export function ZettiViewer({ visible, mediaUrl, isVideo, caption, textY, onClose }: ZettiViewerProps) {
   const [containerHeight, setContainerHeight] = useState(0);
   const y = Math.min(0.88, Math.max(0.08, textY ?? 0.5));
+
+  // Play video Zettis with sound, looping until the viewer taps to dismiss.
+  const player = useVideoPlayer(isVideo && mediaUrl ? mediaUrl : null, (p) => {
+    p.loop = true;
+    p.muted = false;
+    p.play();
+  });
 
   return (
     <Modal
@@ -31,7 +40,14 @@ export function ZettiViewer({ visible, mediaUrl, caption, textY, onClose }: Zett
         onPress={onClose}
         onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
       >
-        {mediaUrl ? (
+        {mediaUrl && isVideo ? (
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        ) : mediaUrl ? (
           <Image
             source={{ uri: mediaUrl }}
             style={StyleSheet.absoluteFill}
@@ -43,7 +59,9 @@ export function ZettiViewer({ visible, mediaUrl, caption, textY, onClose }: Zett
             pointerEvents="none"
             style={[styles.captionWrap, { top: y * containerHeight }]}
           >
-            <Text style={styles.caption}>{caption}</Text>
+            <View style={styles.captionBg}>
+              <Text style={styles.caption}>{caption}</Text>
+            </View>
           </View>
         ) : null}
       </Pressable>
@@ -64,8 +82,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     transform: [{ translateY: -24 }],
   },
+  captionBg: {
+    maxWidth: "100%",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "rgba(0,0,0,0.42)",
+  },
   caption: {
-    width: "100%",
     color: "#FFFFFF",
     fontFamily: INTER_FONT,
     fontSize: 22,

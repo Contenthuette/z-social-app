@@ -18,6 +18,7 @@ import { SymbolView } from "@/components/Icon";
 import { useSound } from "@/lib/sounds";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { ZettiEditor, type ZettiMedia } from "@/components/ZettiEditor";
+import { ZettiCamera } from "@/components/ZettiCamera";
 
 // Error boundary to catch native module crashes
 interface ErrorBoundaryState {
@@ -103,7 +104,7 @@ interface ChatInputBarProps {
   onSendVoice?: (uri: string, durationMs: number) => void;
   onSendMedia?: (media: MediaPickResult) => Promise<void> | void;
   onSendZetti?: (
-    media: { uri: string; mimeType: string },
+    media: ZettiMedia,
     caption: string,
     textY: number,
   ) => Promise<void> | void;
@@ -131,7 +132,7 @@ export function ChatInputBar({
   const [mediaPreview, setMediaPreview] = useState<MediaPickResult | null>(null);
   const [isSendingMedia, setIsSendingMedia] = useState(false);
   const [zettiMedia, setZettiMedia] = useState<ZettiMedia | null>(null);
-  const [isLaunchingZettiCamera, setIsLaunchingZettiCamera] = useState(false);
+  const [zettiCameraVisible, setZettiCameraVisible] = useState(false);
   const { playSound } = useSound();
   const { width: screenWidth } = useWindowDimensions();
 
@@ -218,37 +219,26 @@ export function ChatInputBar({
     }
   };
 
-  const handleZettiPress = async () => {
-    if (!onSendZetti || isLaunchingZettiCamera) return;
+  const handleZettiPress = () => {
+    if (!onSendZetti) return;
     playSound("tap");
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    setZettiMedia(null);
+    setZettiCameraVisible(true);
+  };
 
-    setIsLaunchingZettiCamera(true);
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) return;
+  // Camera captured a photo/video → move to the caption editor
+  const handleZettiCaptured = (media: ZettiMedia) => {
+    setZettiCameraVisible(false);
+    setZettiMedia(media);
+  };
 
-      // Native camera, front-facing by default (user can flip via camera UI)
-      const result = await ImagePicker.launchCameraAsync({
-        cameraType: ImagePicker.CameraType.front,
-        quality: 0.8,
-        allowsEditing: false,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        setZettiMedia({
-          uri: asset.uri,
-          mimeType: asset.mimeType ?? "image/jpeg",
-        });
-      }
-    } catch (err) {
-      console.error("Zetti camera error:", err);
-    } finally {
-      setIsLaunchingZettiCamera(false);
-    }
+  // "Nochmal" in the editor → discard and reopen the camera
+  const handleZettiRetake = () => {
+    setZettiMedia(null);
+    setZettiCameraVisible(true);
   };
 
   const handleZettiSend = async (caption: string, textY: number) => {
@@ -377,24 +367,29 @@ export function ChatInputBar({
                 pressed && styles.btnPressed,
               ]}
               hitSlop={6}
-              disabled={isLaunchingZettiCamera}
             >
-              {isLaunchingZettiCamera ? (
-                <ActivityIndicator size="small" color="#8E8E93" />
-              ) : (
-                <SymbolView name="camera.fill" size={18} tintColor="#8E8E93" />
-              )}
+              <SymbolView name="camera.fill" size={18} tintColor="#8E8E93" />
             </Pressable>
           )}
         </View>
       )}
 
-      {/* Zetti editor (photo + draggable caption) */}
+      {/* Zetti camera (photo + video capture) */}
+      {onSendZetti && (
+        <ZettiCamera
+          visible={zettiCameraVisible}
+          onClose={() => setZettiCameraVisible(false)}
+          onCapture={handleZettiCaptured}
+        />
+      )}
+
+      {/* Zetti editor (media + draggable caption) */}
       {onSendZetti && (
         <ZettiEditor
           visible={!!zettiMedia}
           media={zettiMedia}
           onCancel={() => setZettiMedia(null)}
+          onRetake={handleZettiRetake}
           onSend={handleZettiSend}
         />
       )}

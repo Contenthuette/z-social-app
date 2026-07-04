@@ -9,8 +9,10 @@ import {
   Platform,
   PanResponder,
   ActivityIndicator,
+  Keyboard,
 } from "react-native";
 import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { SymbolView } from "@/components/Icon";
 
 // "Inter" with graceful fallback: on native, an unregistered font family
@@ -20,21 +22,25 @@ const INTER_FONT = Platform.select({ web: "Inter, sans-serif", default: "Inter" 
 export interface ZettiMedia {
   uri: string;
   mimeType: string;
+  isVideo?: boolean;
+  durationMs?: number;
 }
 
 interface ZettiEditorProps {
   visible: boolean;
   media: ZettiMedia | null;
   onCancel: () => void;
+  onRetake?: () => void;
   onSend: (caption: string, textY: number) => Promise<void> | void;
 }
 
 const MIN_Y = 0.08;
 const MAX_Y = 0.88;
 
-export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorProps) {
+export function ZettiEditor({ visible, media, onCancel, onRetake, onSend }: ZettiEditorProps) {
   const [caption, setCaption] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [textY, setTextY] = useState(0.5);
   const [containerHeight, setContainerHeight] = useState(0);
 
@@ -42,11 +48,21 @@ export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorPro
   const dragStartYRef = useRef(0.5);
   const containerHeightRef = useRef(0);
 
+  const isVideo = !!media?.isVideo;
+
+  // Loop the video muted in the compose screen (audio plays for the recipient).
+  const player = useVideoPlayer(isVideo && media ? media.uri : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
   // Fresh state every time the editor opens
   useEffect(() => {
     if (visible) {
       setCaption("");
       setIsSending(false);
+      setIsFocused(false);
       setTextY(0.5);
       textYRef.current = 0.5;
     }
@@ -74,6 +90,7 @@ export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorPro
 
   const handleSend = async () => {
     if (isSending) return;
+    Keyboard.dismiss();
     setIsSending(true);
     try {
       await onSend(caption.trim(), textYRef.current);
@@ -83,6 +100,8 @@ export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorPro
       setIsSending(false);
     }
   };
+
+  const showTextBg = isFocused || caption.length > 0;
 
   return (
     <Modal
@@ -98,13 +117,23 @@ export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorPro
           setContainerHeight(e.nativeEvent.layout.height);
         }}
       >
-        {media && (
+        {media && isVideo ? (
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        ) : media ? (
           <Image
             source={{ uri: media.uri }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
           />
-        )}
+        ) : null}
+
+        {/* Tap anywhere (outside the text) closes the keyboard */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()} />
 
         {/* Draggable caption input */}
         <View
@@ -114,16 +143,20 @@ export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorPro
             { top: textY * (containerHeight || 0) },
           ]}
         >
-          <TextInput
-            style={styles.captionInput}
-            value={caption}
-            onChangeText={setCaption}
-            placeholder="Schreib was…"
-            placeholderTextColor="rgba(255,255,255,0.7)"
-            multiline
-            maxLength={200}
-            textAlign="center"
-          />
+          <View style={[styles.captionBg, showTextBg && styles.captionBgVisible]}>
+            <TextInput
+              style={styles.captionInput}
+              value={caption}
+              onChangeText={setCaption}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder="Schreib was…"
+              placeholderTextColor="rgba(255,255,255,0.7)"
+              multiline
+              maxLength={200}
+              textAlign="center"
+            />
+          </View>
         </View>
 
         {/* Cancel */}
@@ -135,6 +168,18 @@ export function ZettiEditor({ visible, media, onCancel, onSend }: ZettiEditorPro
         >
           <SymbolView name="xmark" size={20} tintColor="#FFFFFF" />
         </Pressable>
+
+        {/* Retake ("Nochmal") */}
+        {onRetake && (
+          <Pressable
+            onPress={() => { Keyboard.dismiss(); onRetake(); }}
+            disabled={isSending}
+            style={({ pressed }) => [styles.retakeBtn, pressed && styles.pressed]}
+          >
+            <SymbolView name="arrow.counterclockwise" size={16} tintColor="#FFFFFF" />
+            <Text style={styles.retakeText}>Nochmal</Text>
+          </Pressable>
+        )}
 
         {/* Send */}
         <Pressable
@@ -173,8 +218,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     transform: [{ translateY: -24 }],
   },
+  captionBg: {
+    maxWidth: "100%",
+    borderRadius: 14,
+    paddingHorizontal: 4,
+  },
+  captionBgVisible: {
+    backgroundColor: "rgba(0,0,0,0.42)",
+  },
   captionInput: {
-    width: "100%",
+    minWidth: 60,
     color: "#FFFFFF",
     fontFamily: INTER_FONT,
     fontSize: 22,
@@ -196,6 +249,24 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  retakeBtn: {
+    position: "absolute",
+    bottom: 48,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    height: 48,
+    justifyContent: "center",
+  },
+  retakeText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   sendBtn: {
     position: "absolute",

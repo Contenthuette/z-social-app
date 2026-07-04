@@ -45,7 +45,15 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Z benötigt Zugriff auf die Kamera für Zettis.",
+          "microphonePermission": "Z benötigt Zugriff auf das Mikrofon für Zetti-Videos.",
+          "recordAudioAndroid": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
