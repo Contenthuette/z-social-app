@@ -463,7 +463,72 @@ export const myPinnedGroupIds = authQuery({
   },
 });
 
-/** Pin/unpin a group for the current user only (max 3 pins). */
+/**
+ * The current user's personally-pinned groups as full cards, newest pin first.
+ * Resolved server-side (not from the paginated discover list) so pinned groups
+ * always appear at the top — even if they aren't on the currently loaded page.
+ */
+export const myPinnedGroups = authQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("groups"),
+      name: v.string(),
+      description: v.optional(v.string()),
+      thumbnailUrl: v.optional(v.string()),
+      county: v.optional(v.string()),
+      city: v.optional(v.string()),
+      topic: v.optional(v.string()),
+      interests: v.optional(v.array(v.string())),
+      visibility: v.union(v.literal("public"), v.literal("invite_only"), v.literal("request")),
+      memberCount: v.number(),
+      isMember: v.boolean(),
+      isBanned: v.boolean(),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const myUserId = await getMyUserId(ctx);
+    if (!myUserId) return [];
+    const pins = await ctx.db
+      .query("groupPins")
+      .withIndex("by_userId", (q) => q.eq("userId", myUserId))
+      .collect();
+    const ordered = pins.sort((a, b) => b.pinnedAt - a.pinnedAt);
+
+    const cards = [];
+    for (const pin of ordered) {
+      const group = await ctx.db.get(pin.groupId);
+      if (!group || group.isMemberEventGroup) continue;
+      const membership = await ctx.db
+        .query("groupMembers")
+        .withIndex("by_groupId_and_userId", (q) =>
+          q.eq("groupId", group._id).eq("userId", myUserId),
+        )
+        .unique();
+      cards.push({
+        _id: group._id,
+        name: group.name,
+        description: group.description,
+        thumbnailUrl: group.thumbnailStorageId
+          ? ((await ctx.storage.getUrl(group.thumbnailStorageId)) ?? undefined)
+          : group.thumbnailUrl,
+        county: group.county,
+        city: group.city,
+        topic: group.topic,
+        interests: group.interests,
+        visibility: group.visibility,
+        memberCount: group.memberCount,
+        isMember: membership?.status === "active",
+        isBanned: membership?.status === "banned",
+        createdAt: group.createdAt,
+      });
+    }
+    return cards;
+  },
+});
+
+/** Pin/unpin a group for the current user only (max 5 pins). */
 export const togglePersonalPin = authMutation({
   args: { groupId: v.id("groups") },
   returns: v.null(),
@@ -484,8 +549,8 @@ export const togglePersonalPin = authMutation({
       .query("groupPins")
       .withIndex("by_userId", (q) => q.eq("userId", myUserId))
       .collect();
-    if (myPins.length >= 3) {
-      throw new Error("Du kannst maximal 3 Gruppen anpinnen.");
+    if (myPins.length >= 5) {
+      throw new Error("Du kannst maximal 5 Gruppen anpinnen.");
     }
     await ctx.db.insert("groupPins", {
       userId: myUserId,

@@ -103,9 +103,14 @@ export default function GroupsScreen() {
     api.groups.listPinned,
     isAuthenticated && tab === "groups" ? {} : "skip",
   );
-  // Personal pins (per-user, max 3) — separate from the admin "featured" pins above
+  // Personal pins (per-user, max 5) — separate from the admin "featured" pins above
   const myPinnedGroupIds = useQuery(
     api.groups.myPinnedGroupIds,
+    isAuthenticated && tab === "groups" ? {} : "skip",
+  );
+  // Full pinned-group cards, resolved server-side (always correct at the top)
+  const myPinnedGroups = useQuery(
+    api.groups.myPinnedGroups,
     isAuthenticated && tab === "groups" ? {} : "skip",
   );
   const groupUnread = useQuery(
@@ -155,8 +160,8 @@ export default function GroupsScreen() {
     try {
       await togglePersonalPin({ groupId });
     } catch (e) {
-      const message = e instanceof Error && e.message.includes("maximal 3")
-        ? "Du kannst maximal 3 Gruppen anpinnen."
+      const message = e instanceof Error && e.message.includes("maximal 5")
+        ? "Du kannst maximal 5 Gruppen anpinnen."
         : "Anpinnen fehlgeschlagen.";
       if (Platform.OS !== "web") Alert.alert("Anpinnen", message);
     }
@@ -331,11 +336,11 @@ export default function GroupsScreen() {
   const pinnedList = tab === "groups" && !searchQuery ? (pinnedGroups ?? []) : [];
   const pinnedIds = new Set(pinnedList.map((g) => g._id));
 
-  // Personal pins: only groups the user is a member of, ordered newest pin first
+  // Personal pins: resolved server-side (always shown, newest pin first),
+  // independent of which discover-list page is currently loaded. Admin-pinned
+  // (black) cards stay on top for everyone, so exclude them here to avoid dupes.
   const personalPinnedList = tab === "groups" && !searchQuery
-    ? myPinnedIds
-        .map((gid) => groups.find((g) => g._id === gid && g.isMember))
-        .filter((g): g is NonNullable<typeof g> => g !== undefined)
+    ? (myPinnedGroups ?? []).filter((g) => !pinnedIds.has(g._id))
     : [];
   const personalPinnedIds = new Set(personalPinnedList.map((g) => g._id));
 
