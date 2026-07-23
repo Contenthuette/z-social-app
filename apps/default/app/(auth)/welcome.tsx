@@ -54,6 +54,7 @@ export default function WelcomeScreen() {
   const featureSize = (width - spacing.xl * 2 - spacing.sm * 3) / 4;
 
   const [agbAccepted, setAgbAccepted] = useState(false);
+  const [showAgbError, setShowAgbError] = useState(false);
 
   const openLegalUrl = useCallback(async (url: string) => {
     try {
@@ -105,8 +106,14 @@ export default function WelcomeScreen() {
   }, [isPlaying, player, hasStarted]);
 
   const handleJoin = useCallback(() => {
+    // Button reagiert immer: ohne akzeptierte AGB/Datenschutz keine Weiterleitung,
+    // sondern ein sichtbarer Hinweis (statt eines "toten" Buttons).
+    if (!agbAccepted) {
+      setShowAgbError(true);
+      return;
+    }
     router.navigate("/(auth)/signup");
-  }, []);
+  }, [agbAccepted]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -186,13 +193,21 @@ export default function WelcomeScreen() {
         <Button
           title="Join the Movement"
           onPress={handleJoin}
-          disabled={!agbAccepted}
           fullWidth
         />
 
+        {showAgbError && !agbAccepted && (
+          <Text style={styles.agbError}>
+            Bitte akzeptiere die AGB und Datenschutzerklärung.
+          </Text>
+        )}
+
         <TouchableOpacity
           style={styles.agbRow}
-          onPress={() => setAgbAccepted(!agbAccepted)}
+          onPress={() => {
+            setAgbAccepted(!agbAccepted);
+            setShowAgbError(false);
+          }}
           activeOpacity={0.7}
         >
           <View style={[styles.checkbox, agbAccepted && styles.checkboxChecked]}>
@@ -363,6 +378,12 @@ const styles = StyleSheet.create({
   loginBold: {
     fontWeight: "600",
     color: colors.black,
+  },
+  agbError: {
+    fontSize: 12,
+    color: "#D92D20",
+    textAlign: "center",
+    fontWeight: "600",
   },
   agbRow: {
     flexDirection: "row",

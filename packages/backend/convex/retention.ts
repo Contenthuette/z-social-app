@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import { hashBanEmail, isHashedBanEmail } from "./banHash";
 
 const DAY_MS = 86_400_000;
 const ACCOUNT_RETENTION_MS = 30 * DAY_MS;
@@ -489,29 +491,57 @@ export const cleanupOldOperationalData = internalMutation({
   },
 });
 
-export const anonymizeOldModerationReports = internalMutation({
+/**
+ * DSFA-Auflage (Szenario B): Moderationsdaten werden nach spätestens 6 Monaten
+ * technisch erzwungen bereinigt.
+ *
+ *  - `reports` (Meldungen / Moderationsfälle / Abuse-Logs): HART GELÖSCHT.
+ *  - `bannedEmails` (Sperren): die Klartext-E-Mail wird durch einen Einweg-Hash
+ *    ersetzt (Pseudonymisierung). Der Bann bleibt wirksam, das Personendatum
+ *    "E-Mail" ist danach nicht mehr im Klartext gespeichert. Der Verweis auf den
+ *    bannenden Admin (`bannedByUserId`) wird entfernt.
+ *
+ * `blockedUsers` (private Blockierlisten einzelner Nutzer) sind KEINE
+ * Moderations-Logs und werden bewusst nicht angetastet.
+ *
+ * Läuft batchweise und plant sich selbst neu ein, solange noch alte Reports
+ * existieren, damit auch ein größerer Rückstand zuverlässig abgebaut wird.
+ */
+export const purgeExpiredModerationData = internalMutation({
   args: {},
-  returns: v.number(),
+  returns: v.object({ reportsDeleted: v.number(), bansPseudonymized: v.number() }),
   handler: async (ctx) => {
     const cutoff = Date.now() - MODERATION_RETENTION_MS;
-    const placeholderUserId = await getOrCreateDeletedUser(ctx);
+
+    // 1) Reports / Abuse-Logs älter als 6 Monate: hart löschen.
     const reports = await ctx.db
       .query("reports")
       .withIndex("by_createdAt", (q) => q.lt("createdAt", cutoff))
       .take(BATCH_SIZE);
-
-    let anonymized = 0;
     for (const report of reports) {
-      if (report.reporterId === placeholderUserId && report.targetId === "anonymized") continue;
-      await ctx.db.patch(report._id, {
-        reporterId: placeholderUserId,
-        targetId: "anonymized",
-        reason: "Moderationsfall nach Ablauf der Aufbewahrungsfrist anonymisiert.",
-        status: "resolved",
-        resolvedAt: report.resolvedAt ?? Date.now(),
-      });
-      anonymized += 1;
+      await ctx.db.delete(report._id);
     }
-    return anonymized;
+
+    // 2) Sperren älter als 6 Monate: E-Mail pseudonymisieren (Hash), sofern noch Klartext.
+    //    Die Sperrliste ist klein; ein Scan über die neuesten 500 Einträge genügt und
+    //    ist idempotent (bereits gehashte Einträge werden übersprungen).
+    const bans = await ctx.db.query("bannedEmails").order("desc").take(500);
+    let bansPseudonymized = 0;
+    for (const ban of bans) {
+      if (ban.bannedAt >= cutoff) continue;
+      if (isHashedBanEmail(ban.email)) continue;
+      await ctx.db.patch(ban._id, {
+        email: await hashBanEmail(ban.email),
+        bannedByUserId: undefined,
+      });
+      bansPseudonymized += 1;
+    }
+
+    // Noch mehr alte Reports vorhanden? Direkt erneut einplanen, um den Rückstand abzubauen.
+    if (reports.length === BATCH_SIZE) {
+      await ctx.scheduler.runAfter(0, internal.retention.purgeExpiredModerationData, {});
+    }
+
+    return { reportsDeleted: reports.length, bansPseudonymized };
   },
 });

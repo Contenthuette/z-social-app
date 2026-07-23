@@ -13,6 +13,7 @@ import type * as admin from "../admin.js";
 import type * as adminActions from "../adminActions.js";
 import type * as adminTools from "../adminTools.js";
 import type * as auth from "../auth.js";
+import type * as banHash from "../banHash.js";
 import type * as callActions from "../callActions.js";
 import type * as calls from "../calls.js";
 import type * as communityInterests from "../communityInterests.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   adminActions: typeof adminActions;
   adminTools: typeof adminTools;
   auth: typeof auth;
+  banHash: typeof banHash;
   callActions: typeof callActions;
   calls: typeof calls;
   communityInterests: typeof communityInterests;
@@ -1110,12 +1112,7 @@ export declare const components: {
               | "starts_with"
               | "ends_with";
             value:
-              | string
-              | number
-              | boolean
-              | Array<string>
-              | Array<number>
-              | null;
+              string | number | boolean | Array<string> | Array<number> | null;
           }>;
         },
         any
@@ -1154,12 +1151,7 @@ export declare const components: {
               | "starts_with"
               | "ends_with";
             value:
-              | string
-              | number
-              | boolean
-              | Array<string>
-              | Array<number>
-              | null;
+              string | number | boolean | Array<string> | Array<number> | null;
           }>;
         },
         any
@@ -2381,10 +2373,7 @@ export declare const components: {
           data?: any;
           expiration?: number;
           interruptionLevel?:
-            | "active"
-            | "critical"
-            | "passive"
-            | "time-sensitive";
+            "active" | "critical" | "passive" | "time-sensitive";
           mutableContent?: boolean;
           numPreviousFailures: number;
           priority?: "default" | "normal" | "high";
@@ -2421,10 +2410,7 @@ export declare const components: {
           expiration?: number;
           id: string;
           interruptionLevel?:
-            | "active"
-            | "critical"
-            | "passive"
-            | "time-sensitive";
+            "active" | "critical" | "passive" | "time-sensitive";
           mutableContent?: boolean;
           numPreviousFailures: number;
           priority?: "default" | "normal" | "high";
@@ -2491,10 +2477,7 @@ export declare const components: {
             data?: any;
             expiration?: number;
             interruptionLevel?:
-              | "active"
-              | "critical"
-              | "passive"
-              | "time-sensitive";
+              "active" | "critical" | "passive" | "time-sensitive";
             mutableContent?: boolean;
             priority?: "default" | "normal" | "high";
             sound?: string | null;
@@ -2522,10 +2505,7 @@ export declare const components: {
               data?: any;
               expiration?: number;
               interruptionLevel?:
-                | "active"
-                | "critical"
-                | "passive"
-                | "time-sensitive";
+                "active" | "critical" | "passive" | "time-sensitive";
               mutableContent?: boolean;
               priority?: "default" | "normal" | "high";
               sound?: string | null;
@@ -3174,16 +3154,7 @@ export declare const components: {
           agentName?: string;
           embeddings?: {
             dimension:
-              | 128
-              | 256
-              | 512
-              | 768
-              | 1024
-              | 1408
-              | 1536
-              | 2048
-              | 3072
-              | 4096;
+              128 | 256 | 512 | 768 | 1024 | 1408 | 1536 | 2048 | 3072 | 4096;
             model: string;
             vectors: Array<Array<number> | null>;
           };
@@ -5807,16 +5778,7 @@ export declare const components: {
             model: string;
             threadId: string;
             vectorDimension:
-              | 128
-              | 256
-              | 512
-              | 768
-              | 1024
-              | 1408
-              | 1536
-              | 2048
-              | 3072
-              | 4096;
+              128 | 256 | 512 | 768 | 1024 | 1408 | 1536 | 2048 | 3072 | 4096;
           },
           { continueCursor: string; isDone: boolean }
         >;
@@ -5825,16 +5787,7 @@ export declare const components: {
           "internal",
           {
             vectorDimension:
-              | 128
-              | 256
-              | 512
-              | 768
-              | 1024
-              | 1408
-              | 1536
-              | 2048
-              | 3072
-              | 4096;
+              128 | 256 | 512 | 768 | 1024 | 1408 | 1536 | 2048 | 3072 | 4096;
             vectors: Array<{
               messageId?: string;
               model: string;
@@ -5866,16 +5819,7 @@ export declare const components: {
             table?: string;
             targetModel: string;
             vectorDimension:
-              | 128
-              | 256
-              | 512
-              | 768
-              | 1024
-              | 1408
-              | 1536
-              | 2048
-              | 3072
-              | 4096;
+              128 | 256 | 512 | 768 | 1024 | 1408 | 1536 | 2048 | 3072 | 4096;
           },
           {
             continueCursor: string;

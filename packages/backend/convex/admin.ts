@@ -8,6 +8,7 @@ import { paginatedResultValidator } from "./pagination";
 import { internal } from "./_generated/api";
 import { rateLimiter, INPUT_LIMITS, validateStringLength, sanitizeText } from "./rateLimit";
 import { deleteUserPersonalData } from "./retention";
+import { hashBanEmail, isHashedBanEmail } from "./banHash";
 
 /* ─── helpers ─────────────────────────────────────────────────── */
 type AdminReadCtx = {
@@ -983,12 +984,22 @@ export const unbanEmail = authMutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const email = args.email.toLowerCase().trim();
+    // Klartext-Sperre (jüngere Bans)
     const existing = await ctx.db
       .query("bannedEmails")
       .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
     if (existing) {
       await ctx.db.delete(existing._id);
+    }
+    // Pseudonymisierte Sperre (ältere Bans, E-Mail gehasht): über denselben Hash entsperren
+    const hashedEmail = await hashBanEmail(email);
+    const existingHashed = await ctx.db
+      .query("bannedEmails")
+      .withIndex("by_email", (q) => q.eq("email", hashedEmail))
+      .unique();
+    if (existingHashed) {
+      await ctx.db.delete(existingHashed._id);
     }
     return null;
   },
@@ -1009,7 +1020,8 @@ export const listBannedEmails = authQuery({
     const rows = await ctx.db.query("bannedEmails").order("desc").take(500);
     return rows.map((b) => ({
       _id: b._id,
-      email: b.email,
+      // Pseudonymisierte (gehashte) Sperren werden im Admin-UI nicht im Klartext angezeigt.
+      email: isHashedBanEmail(b.email) ? "(anonymisiert nach 6 Monaten)" : b.email,
       reason: b.reason,
       bannedAt: b.bannedAt,
     }));

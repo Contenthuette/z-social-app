@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { authMutation, authQuery } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { rateLimiter, INPUT_LIMITS, validateStringLength, sanitizeText } from "./rateLimit";
+import { hashBanEmail } from "./banHash";
 
 async function getMyUserId(ctx: any): Promise<Id<"users"> | null> {
   const authId = ctx.user._id;
@@ -52,10 +53,18 @@ export const amIBanned = authQuery({
     if (!user) return false;
     const email = user.email.toLowerCase().trim();
     if (!email) return false;
+    // 1) Klartext-Sperre (jüngere Bans, < 6 Monate)
     const banned = await ctx.db
       .query("bannedEmails")
       .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
-    return banned !== null;
+    if (banned !== null) return true;
+    // 2) Pseudonymisierte Sperre (ältere Bans, E-Mail gehasht) – gleicher Hash-Abgleich
+    const hashedEmail = await hashBanEmail(email);
+    const bannedHashed = await ctx.db
+      .query("bannedEmails")
+      .withIndex("by_email", (q) => q.eq("email", hashedEmail))
+      .unique();
+    return bannedHashed !== null;
   },
 });

@@ -46,9 +46,9 @@ crons.interval(
 );
 
 crons.interval(
-  "gdpr anonymize old moderation reports",
+  "gdpr purge expired moderation data",
   { hours: 24 },
-  internal.retention.anonymizeOldModerationReports,
+  internal.retention.purgeExpiredModerationData,
   {},
 );
 
